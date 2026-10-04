@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALOUD trailer: pop card</title>
+<!--
+  Motion cards for the trailer in the game's POP print (css/aloud.css §24 pop card, css/title.css pop title, icons/pop):
+  cream stock, bold ink outline, die-cut cream edge, the pink drum off register (offset shadow), pink halftone corners,
+  little stars popping in; Titan One headlines, Montserrat body. A deterministic __shot like every trailer page.
+    pop.html?mode=card&text=How does a civilisation|reach the *stars*?||What else is out there?&dur=6&bg=night
+    pop.html?mode=title&text=ALOUD&sub=A civilisation, spoken aloud&dur=6
+  text: "||" separates beats (the card re-sets its words between them), "|" a line break, *word* a lemon pop word.
+  mode=card|title  bg=night|clear (clear: transparent, captured as RGBA and laid over footage)  dur fin fout (s)
+  size=<px> (headline)  y=<px> (offset from centre)  small=<sub line under a card beat, Montserrat>  t=<s> (a still)
+-->
+<style>
+  @font-face { font-family: "Titan"; src: url(../assets/fonts/TitanOne-Regular.woff2) format("woff2"); font-weight: 400; font-display: block; }
+  @font-face { font-family: Montserrat; font-style: normal; font-weight: 100 900; font-display: block; src: url(../assets/fonts/Montserrat-latin.woff2) format("woff2"); }
+  :root { --ink: #2a2740; --pink: #ee3d84; --pink-l: #f8aecb; --mag: #b3175a; --lemon: #ffe23a; --cream: #fff3dc; --card: #fff8ec; --night: #0a0c22; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--night); }
+  html.clear, html.clear body { background: transparent; }
+  #sky { position: absolute; inset: 0; }
+  #sky i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff3dc; }
+  .stage { position: absolute; inset: 0; display: grid; place-items: center; }
+  .card { position: relative; border-radius: 34px; background: var(--card);
+    box-shadow: 0 0 0 5px var(--ink), 0 0 0 11px var(--cream), 13px 15px 0 11px var(--pink), 13px 15px 0 16px var(--ink); }
+  html.clear .card { box-shadow: 0 0 0 5px var(--ink), 0 0 0 11px var(--cream), 13px 15px 0 11px var(--pink), 13px 15px 0 16px var(--ink), 0 30px 60px -10px rgba(10, 12, 34, .45); }
+  .ht { position: absolute; inset: 0; border-radius: 34px; pointer-events: none;
+    background: radial-gradient(circle, var(--pink) 2.6px, transparent 3.5px) 0 0 / 15px 15px; opacity: .55; }
+  .ht.a { -webkit-mask-image: radial-gradient(circle at 100% 0, #000 0, rgba(0,0,0,.6) 90px, transparent 230px); mask-image: radial-gradient(circle at 100% 0, #000 0, rgba(0,0,0,.6) 90px, transparent 230px); }
+  .ht.b { -webkit-mask-image: radial-gradient(circle at 0 100%, #000 0, rgba(0,0,0,.6) 80px, transparent 200px); mask-image: radial-gradient(circle at 0 100%, #000 0, rgba(0,0,0,.6) 80px, transparent 200px); }
+  .beat { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; }
+  .line { display: block; font: 400 84px/1.12 Titan, "Arial Black", sans-serif; color: var(--ink); letter-spacing: .01em; }
+  .w { display: inline-block; will-change: transform; }
+  .w.hi { color: var(--lemon); -webkit-text-stroke: .09em var(--ink); paint-order: stroke fill; text-shadow: .05em .06em 0 var(--pink), .08em .09em 0 var(--ink); }
+  .small { display: block; margin-top: 18px; font: 700 30px/1.2 Montserrat, sans-serif; color: var(--mag); letter-spacing: .02em; }
+  .star { position: absolute; width: 74px; height: 74px; filter: drop-shadow(4px 4px 0 rgba(42, 39, 64, .95)); }
+  .star svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  /* title */
+  .title { position: relative; text-align: center; }
+  .name { position: relative; display: inline-block; font: 400 250px/1 Titan, "Arial Black", sans-serif; letter-spacing: .02em; white-space: nowrap; }
+  .L { position: relative; display: inline-block; color: var(--lemon); -webkit-text-stroke: .085em var(--ink); paint-order: stroke fill;
+    text-shadow: .05em .06em 0 var(--pink), .075em .09em 0 var(--ink); }
+  .L::after { content: attr(data-c); position: absolute; inset: 0; color: transparent; -webkit-text-stroke: 0; text-shadow: none;
+    background: radial-gradient(circle, var(--pink) .022em, transparent .032em) 0 0 / .085em .085em; -webkit-background-clip: text; background-clip: text;
+    -webkit-mask-image: linear-gradient(180deg, transparent 50%, rgba(0,0,0,.55) 66%, #000 82%); mask-image: linear-gradient(180deg, transparent 50%, rgba(0,0,0,.55) 66%, #000 82%); opacity: .85; }
+  .tag { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 46px; font: 700 30px/1.2 Montserrat, sans-serif; letter-spacing: .26em; text-indent: .26em; color: var(--cream); text-transform: uppercase; }
+  .tag::before, .tag::after { content: ""; width: 54px; height: 6px; border-radius: 6px; background: var(--pink); }
+</style>
+</head>
+<body>
+<div id="sky"></div>
+<div class="stage"><div id="root"></div></div>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const get = (k, d) => q.has(k) ? q.get(k) : d;
+  const mode = get('mode', 'card'), dur = +get('dur', 5), fin = +get('fin', 0.5), fout = +get('fout', 0.45);
+  const bg = get('bg', 'night'), size = +get('size', mode === 'title' ? 250 : 84), yOff = +get('y', 0);
+  if (bg === 'clear') document.documentElement.classList.add('clear');
+  const root = document.getElementById('root');
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const backOut = (u, s = 2.1) => { u = clamp(u, 0, 1) - 1; return 1 + u * u * ((s + 1) * u + s); };
+  const easeIn = u => { u = clamp(u, 0, 1); return u * u * u; };
+  const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+  const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const STAR = '<svg viewBox="0 0 24 24"><path d="M12 1.8l2.9 6.4 7 .7-5.3 4.7 1.6 6.9L12 16.9l-6.2 3.6 1.6-6.9L2.1 8.9l7-.7z" fill="#ffe23a" stroke="#2a2740" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const SPARK = '<svg viewBox="0 0 24 24"><path d="M12 1c.8 6.4 4.6 10.2 11 11-6.4.8-10.2 4.6-11 11-.8-6.4-4.6-10.2-11-11C7.4 11.2 11.2 7.4 12 1z" fill="#ee3d84" stroke="#2a2740" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+
+  // a quiet night sky behind night cards (deterministic twinkle)
+  const sky = document.getElementById('sky'), skyDots = [];
+  if (bg === 'night') for (let i = 0; i < 90; i++) { const d = document.createElement('i'); d.style.left = (hash(i) * 1920).toFixed(0) + 'px'; d.style.top = (hash(i + 99) * 1080).toFixed(0) + 'px'; const s = 1 + hash(i + 7) * 2.5; d.style.width = d.style.height = s + 'px'; sky.append(d); skyDots.push(d); }
+
+  const stars = [];
+  function addStar(parent, svg, x, y, sc, at) { const s = document.createElement('div'); s.className = 'star'; s.innerHTML = svg; s.style.left = x; s.style.top = y; parent.append(s); stars.push({ el: s, sc, at, ph: hash(stars.length + 3) * 6.28 }); }
+
+  await document.fonts.load(`400 ${size}px Titan`).catch(() => {});
+  await document.fonts.load('700 30px Montserrat').catch(() => {});
+  await document.fonts.ready;
+
+  let render;
+  if (mode === 'title') {
+    const text = get('text', 'ALOUD'), sub = get('sub', '');
+    root.innerHTML = `<div class="title"><div class="name" id="name" style="font-size:${size}px"></div>${sub ? `<div class="tag" id="tag">${esc(sub)}</div>` : ''}</div>`;
+    const name = document.getElementById('name'), tag = document.getElementById('tag');
+    const letters = [...text].map((c, i) => { const s = document.createElement('span'); s.className = 'L'; s.textContent = c; s.dataset.c = c; name.append(s); return s; });
+    addStar(name, STAR, '-0.5em', '-0.12em', 1.25, 0.75); addStar(name, SPARK, 'calc(100% + 0.08em)', '-0.2em', 1.0, 0.88);
+    addStar(name, STAR, 'calc(100% + 0.16em)', '0.62em', 0.75, 1.0); addStar(name, SPARK, '-0.34em', '0.72em', 0.6, 1.1);
+    stars.forEach(s => { s.el.style.fontSize = size + 'px'; });
+    render = t => {
+      const out = easeIn((t - (dur - fout)) / fout);
+      letters.forEach((l, i) => { const u = (t - 0.08 - i * 0.075) / 0.5, b = backOut(u, 2.4);
+        l.style.opacity = clamp(u * 5, 0, 1); l.style.transform = `translateY(${((1 - b) * 120).toFixed(1)}px) scale(${(0.3 + 0.7 * b).toFixed(4)}) rotate(${((1 - clamp(u, 0, 1)) * (i % 2 ? 14 : -14)).toFixed(2)}deg)`; });
+      const breathe = 1 + 0.015 * Math.sin(t * 1.3);
+      name.style.transform = `scale(${(breathe * (1 - 0.15 * out)).toFixed(4)}) rotate(-2deg)`;
+      if (tag) { const u = (t - 0.9) / 0.5; tag.style.opacity = clamp(u, 0, 1) * (1 - out); tag.style.transform = `translateY(${((1 - backOut(u, 1.4)) * 30).toFixed(1)}px)`; }
+      root.style.opacity = (1 - out).toFixed(3);
+    };
+  } else {
+    const beats = get('text', 'It all begins with a *word*.').split('||').map(b => b.split('|'));
+    const small = get('small', '').split('||');
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = '<div class="ht a"></div><div class="ht b"></div>';
+    root.append(card);
+    const B = beats.map((lines, bi) => {
+      const el = document.createElement('div'); el.className = 'beat'; const words = [];
+      for (const ln of lines) { const L = document.createElement('span'); L.className = 'line'; L.style.fontSize = size + 'px';
+        let inHi = false;
+        ln.split(' ').forEach((w, wi, arr) => { const open = w.startsWith('*'), close = /\*[.,?!]*$/.test(w); const hi = inHi || open; inHi = (inHi || open) && !close;
+          const s = document.createElement('span'); s.className = 'w' + (hi ? ' hi' : '');
+          s.textContent = w.replace(/\*/g, ''); L.append(s); if (wi < arr.length - 1) L.append(document.createTextNode(' ')); words.push(s); });
+        el.append(L); }
+      if (small[bi]) { const s = document.createElement('span'); s.className = 'small'; s.textContent = small[bi]; s.style.fontSize = Math.round(size * 0.36) + 'px'; el.append(s); words.push(s); }
+      card.append(el); return { el, words, w: el.offsetWidth, h: el.offsetHeight };
+    });
+    const padX = size * 0.95, padY = size * 0.62;
+    // beat timing: the card pops in, each beat's words spring in, hold, pop out; the card re-sizes between beats
+    const n = B.length, inT = 0.25, span = (dur - inT - fout) / n;
+    B.forEach((b, i) => { b.t0 = inT + i * span; b.t1 = b.t0 + span - (i < n - 1 ? 0.28 : 0); });
+    addStar(card, STAR, '-48px', '-50px', 1.15, 0.32); addStar(card, SPARK, 'calc(100% - 22px)', '-58px', 0.85, 0.42);
+    addStar(card, SPARK, '-40px', 'calc(100% - 20px)', 0.62, 0.52); addStar(card, STAR, 'calc(100% - 30px)', 'calc(100% - 34px)', 0.78, 0.6);
+    render = t => {
+      // card size: the current beat's, springing to the next across the hand-over
+      let k = 0; while (k < n - 1 && t >= B[k + 1].t0 - 0.12) k++;
+      const prev = B[Math.max(0, k - 1)], cur = B[k], hu = k > 0 ? backOut((t - (cur.t0 - 0.12)) / 0.45, 1.6) : 1;
+      const w = prev.w + (cur.w - prev.w) * hu + padX * 2, h = prev.h + (cur.h - prev.h) * hu + padY * 2;
+      card.style.width = w.toFixed(1) + 'px'; card.style.height = h.toFixed(1) + 'px';
+      const cin = backOut(t / fin, 1.9), cout = easeIn((t - (dur - fout)) / fout);
+      const squash = k > 0 ? Math.sin(clamp((t - (cur.t0 - 0.12)) / 0.35, 0, 1) * Math.PI) * 0.035 : 0;
+      card.style.transform = `translateY(${yOff + (1 - cin) * 60 + cout * 40}px) scale(${((0.2 + 0.8 * cin) * (1 - 0.5 * cout) * (1 + squash)).toFixed(4)}, ${((0.2 + 0.8 * cin) * (1 - 0.5 * cout) * (1 - squash)).toFixed(4)}) rotate(${(-1.4 - (1 - clamp(t / fin, 0, 1)) * 5 + cout * 4).toFixed(2)}deg)`;
+      card.style.opacity = (clamp(t / 0.12, 0, 1) * (1 - cout)).toFixed(3);
+      B.forEach((b, bi) => b.words.forEach((wd, wi) => {
+        const u = (t - b.t0 - wi * 0.075) / 0.42, bo = backOut(u, 2.3);
+        const o = bi < n - 1 ? easeIn((t - b.t1 - wi * 0.025) / 0.2) : 0;
+        wd.style.opacity = (clamp(u * 5, 0, 1) * (1 - o)).toFixed(3);
+        wd.style.transform = `translateY(${((1 - bo) * 44 - o * 30).toFixed(1)}px) scale(${((0.25 + 0.75 * bo) * (1 - 0.6 * o)).toFixed(4)}) rotate(${((1 - clamp(u, 0, 1)) * (hash(bi * 31 + wi) - 0.5) * 30).toFixed(2)}deg)`;
+      }));
+      card.querySelectorAll('.ht').forEach((h, i) => { h.style.opacity = (0.8 * clamp((t - 0.15 - i * 0.1) / 0.3, 0, 1)).toFixed(3); });
+    };
+  }
+  function seek(t) {
+    t = clamp(+t || 0, 0, dur);
+    render(t);
+    stars.forEach(s => { const u = (t - s.at) / 0.45, b = backOut(u, 2.6), out = easeIn((t - (dur - fout)) / (fout * 0.8));
+      s.el.style.opacity = (clamp(u * 4, 0, 1) * (1 - out)).toFixed(3);
+      s.el.style.transform = `scale(${(s.sc * b * (1 + 0.1 * Math.sin(t * 3.1 + s.ph)) * (1 - out)).toFixed(4)}) rotate(${((1 - clamp(u, 0, 1)) * -70 + 10 * Math.sin(t * 1.7 + s.ph)).toFixed(2)}deg)`; });
+    skyDots.forEach((d, i) => { d.style.opacity = (0.25 + 0.45 * (0.5 + 0.5 * Math.sin(t * (1 + hash(i) * 2) + i))).toFixed(3); });
+  }
+  const shot = { duration: dur, done: false, seek, play() { const t0 = performance.now(); const tick = () => { const t = (performance.now() - t0) / 1000; seek(t); if (t < dur) requestAnimationFrame(tick); else shot.done = true; }; requestAnimationFrame(tick); } };
+  seek(+get('t', 0));
+  window.__shot = shot;
+  if (q.has('play')) shot.play();
+})();
+</script>
+</body>
+</html>

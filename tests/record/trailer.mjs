@@ -180,7 +180,7 @@ export async function captureFrames({ page, cdp }, url, dir, { fps, maxDur = Inf
 async function encodeSeq(dir, base, fps) {   // the preview clip; the edit cuts from the PNG sequence itself
   await ff(['-framerate', String(fps), '-i', path.join(dir, '%05d.png'), '-vf', 'format=yuv420p', ...H264(14), `${base}.mp4`]);
 }
-const cardUrl = (base, p) => `${base}/trailer/card.html?` + new URLSearchParams(Object.fromEntries(Object.entries(p).filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)]))).toString();
+const cardUrl = (base, p, page = 'card') => `${base}/trailer/${page}.html?` + new URLSearchParams(Object.fromEntries(Object.entries(p).filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)]))).toString();
 
 export async function capture(opts) {
   const cut = loadCut(); const fps = opts.fps || cut.fps;
@@ -212,12 +212,15 @@ export async function capture(opts) {
     // b. the title cards (card.html with the segment's params): captured like scenes so the fades are frame-exact
     for (const s of cut.segments) {
       if (s.type !== 'card' || (opts.scene && opts.scene !== s.id)) continue;
-      const key = `card:${s.id}`, params = { text: s.text, sub: s.sub, face: s.face, italic: s.italic, weight: s.weight, size: s.size, bg: s.bg || 'night', dur: s.dur, fin: s.fin, fout: s.fout, lb: cut.letterbox ? 1 : 0, grain: s.grain };
-      const sig = JSON.stringify(params) + fs.statSync(path.join(WEB, 'trailer', 'card.html')).mtimeMs;
+      // pop: { mode, text, sub, small, size, y, ... } renders web/trailer/pop.html (the game's pop print) instead of card.html
+      const page = s.pop ? 'pop' : 'card';
+      const key = `card:${s.id}`, params = s.pop ? { ...s.pop, bg: s.bg || 'night', dur: s.dur, fin: s.fin, fout: s.fout }
+        : { text: s.text, sub: s.sub, face: s.face, italic: s.italic, weight: s.weight, size: s.size, bg: s.bg || 'night', dur: s.dur, fin: s.fin, fout: s.fout, lb: cut.letterbox ? 1 : 0, grain: s.grain };
+      const sig = JSON.stringify(params) + fs.statSync(path.join(WEB, 'trailer', `${page}.html`)).mtimeMs;
       if (manifest[key]?.sig === sig && manifest[key].fps === fps && exists(path.join(OUT, 'seq', `card-${s.id}`, '00000.png')) && !opts.force) { log(`card ${s.id}: up to date`); continue; }
-      log(`card ${s.id}: "${s.text}"`);
+      log(`card ${s.id}: "${s.text || s.pop?.text}"`);
       const dir = path.join(OUT, 'seq', `card-${s.id}`);
-      const r = await captureFrames(b, cardUrl(server.base, params), dir, { fps, render: { ...R, w: cut.width, h: cut.height }, out: OUTSZ });
+      const r = await captureFrames(b, cardUrl(server.base, params, page), dir, { fps, render: { ...R, w: cut.width, h: cut.height }, out: OUTSZ });
       mkdir(path.join(OUT, 'clips'));
       await encodeSeq(dir, path.join(OUT, 'clips', `card-${s.id}`), fps);
       saveManifest(key, { frames: r.frames, dur: r.duration, fps, sig, at: new Date().toISOString() });
@@ -226,10 +229,20 @@ export async function capture(opts) {
   // c. overlay cards (over footage): one RGBA still each, faded in the edit
   const overlays = cut.segments.filter(s => s.overlay);
   if (overlays.length) {
-    const server2 = await ensureServer(); const b2 = await launch(cut, { alpha: true });
+    const server2 = await ensureServer(); const b2 = await launch(cut, { alpha: true, dpr: R.dpr || 1 });
     try {
       for (const s of overlays) {
         if (opts.scene && opts.scene !== s.id) continue;
+        if (s.overlay.pop) {   // a motion overlay: an RGBA frame sequence of pop.html (bg=clear), laid over the footage from `at`
+          const o = s.overlay, params = { ...o.pop, bg: 'clear', dur: o.dur ?? 3, fin: o.fin, fout: o.fout };
+          const key = `ov:${s.id}`, sig = JSON.stringify(params) + fs.statSync(path.join(WEB, 'trailer', 'pop.html')).mtimeMs, dir = path.join(OUT, 'seq', `ov-${s.id}`);
+          const cur = exists(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : {};
+          if (cur[key]?.sig === sig && exists(path.join(dir, '00000.png')) && !opts.force) { log(`overlay ${s.id}: up to date`); continue; }
+          const r = await captureFrames(b2, cardUrl(server2.base, params, 'pop'), dir, { fps, render: { ...R, w: cut.width, h: cut.height }, out: OUTSZ });
+          saveManifest(key, { frames: r.frames, dur: r.duration, fps, sig, at: new Date().toISOString() });
+          log(`overlay ${s.id}: pop sequence ${r.frames} frames`);
+          continue;
+        }
         const o = s.overlay, file = path.join(OUT, 'cards', `${s.id}-overlay.png`); mkdir(path.dirname(file));
         await b2.page.goto(cardUrl(server2.base, { text: o.text, sub: o.sub, face: o.face, italic: o.italic, weight: o.weight, ink: o.ink, y: o.y, size: o.size, bg: 'clear', dur: 10, fin: 0, fout: 0, t: 5, grain: o.grain }), { waitUntil: 'load' });
         await b2.page.waitForFunction(() => window.__shot, { timeout: 30000 });
@@ -391,6 +404,10 @@ async function buildSegments(cut) {
       args = ['-framerate', String(fps), '-start_number', String(start), '-i', path.join(OUT, 'seq', s.scene, '%05d.png')];
       vf.push(`trim=end_frame=${count}`, `setpts=PTS-STARTPTS`);
       if (count < Math.round((s.dur || 0) * fps)) vf.push(`tpad=stop_mode=clone:stop_duration=${(s.dur - count / fps).toFixed(3)}`);
+      // speed: play the source range faster (dur stays the SOURCE length; the segment lasts dur/speed); holdEnd: freeze the last frame
+      const sp = s.speed || 1; s._outDur = s.dur / sp;
+      if (sp !== 1) vf.push(`setpts=(PTS-STARTPTS)/${sp}`, `fps=${fps}`, `trim=end_frame=${Math.round(s.dur / sp * fps)}`);
+      if (s.holdEnd) { vf.push(`tpad=stop_mode=clone:stop_duration=${s.holdEnd}`); s._outDur += s.holdEnd; }
     } else if (s.type === 'card') {
       const n = seqFrames(`card-${s.id}`); if (!n) throw new Error(`card ${s.id}: not captured (run capture)`);
       args = ['-framerate', String(fps), '-i', path.join(OUT, 'seq', `card-${s.id}`, '%05d.png')];
@@ -474,8 +491,13 @@ async function buildSegments(cut) {
       vf.push(`null[fh_a];color=c=${col}:s=${cut.width}x${cut.height}:r=${fps}:d=${fd},format=rgba,colorchannelmixer=aa=${fa},fade=t=out:st=0:d=${fd}:alpha=1[fh_b];[fh_a][fh_b]overlay=eof_action=pass:format=auto`);
     }
     let tailIn = [];
-    const ovFile = s.overlay && s.type !== 'gameplay' && findFile(path.join('shots', 'trailer', 'cards', `${s.id}-overlay.png`));
-    if (ovFile) {   // an over-footage card on any segment: at (s from the head; negative = from the tail)
+    const ovSeq = s.overlay?.pop && s.type !== 'gameplay' && exists(path.join(OUT, 'seq', `ov-${s.id}`, '00000.png')) ? path.join(OUT, 'seq', `ov-${s.id}`, '%05d.png') : null;
+    const ovFile = !ovSeq && s.overlay && s.type !== 'gameplay' && findFile(path.join('shots', 'trailer', 'cards', `${s.id}-overlay.png`));
+    if (ovSeq) {
+      const segDur = s._outDur || s.dur || 0, at = r3((s.overlay.at ?? 0.5) < 0 ? segDur + s.overlay.at : (s.overlay.at ?? 0.5));
+      tailIn = ['-framerate', String(fps), '-i', ovSeq];
+      vf.push(`null[ov_a];[1:v]format=rgba,setpts=PTS-STARTPTS+${at}/TB[ov_b];[ov_a][ov_b]overlay=0:0:eof_action=pass:format=auto`);
+    } else if (ovFile) {   // an over-footage card on any segment: at (s from the head; negative = from the tail)
       const segDur = s.dur || 0, od = s.overlay.dur ?? 4, f = s.overlay.fade ?? 0.7, at = r3((s.overlay.at ?? 0.5) < 0 ? segDur + s.overlay.at : (s.overlay.at ?? 0.5));
       tailIn = ['-loop', '1', '-framerate', String(fps), '-t', String(od), '-i', ovFile];
       vf.push(`null[ov_a];[1:v]format=rgba,fade=t=in:st=0:d=${f}:alpha=1,fade=t=out:st=${r3(od - f)}:d=${f}:alpha=1,setpts=PTS-STARTPTS+${at}/TB[ov_b];[ov_a][ov_b]overlay=0:0:eof_action=pass:format=auto`);

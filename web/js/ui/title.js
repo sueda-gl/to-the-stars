@@ -13,6 +13,7 @@
 
 export const TITLE_NAMES = {
   hither:   { word: 'Hither',   tag: 'a small world that comes when called', why: '“come hither”: you call, and the little fliers come. Speech is the whole interface.' },
+  stars:    { word: 'To the Stars', tag: 'a civilisation, spoken into being', why: 'the game\u2019s new name (14:10).' },
   aloud:    { word: 'Aloud',    tag: 'a civilisation, spoken aloud', why: 'says exactly what the game is, in one quiet word.' },
   bidden:   { word: 'Bidden',   tag: 'a little world at your bidding', why: 'to bid = to command by word; also “bidden” = invited, the folk arriving.' },
   parley:   { word: 'Parley',   tag: 'speak, and a small world answers', why: 'from French parler: talk, treaties, the neighbours; a word with sea-salt in it.' },
@@ -32,7 +33,7 @@ export const TITLE_FONTS = {
 export const TITLE_NAME_IDS = Object.keys(TITLE_NAMES);
 export const TITLE_FONT_IDS = Object.keys(TITLE_FONTS);
 // what the game uses until Sueda picks (docs/title.md has the lab's recommendation)
-export const TITLE_DEFAULT = { name: 'aloud', font: 'pop', alt: 'melodrama' };   // §23 (revised 2026-10-04 pm): the pop-comic title
+export const TITLE_DEFAULT = { name: 'stars', font: 'pop', alt: 'melodrama' };   // §23 (revised 2026-10-04 pm): the pop-comic title
 
 const CSS_HREF = new URL('../../css/title.css', import.meta.url).href;
 export function linkTitleCSS() {
