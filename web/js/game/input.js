@@ -17,7 +17,7 @@ export function createInput({ ctx, world, agents = null, ui = null, marksRef = (
   if (onFolkHover) addEventListener('pointermove', e => {
     const now = performance.now(); if (now - hoverT < 50) return; hoverT = now;
     let id = null;
-    if (active() && agents && e.target === dom) { try { id = agents.pickAgent(e.clientX, e.clientY, { radiusPx: 8 }); } catch (_) { id = null; } }
+    if (active() && agents && e.target === dom) { try { id = agents.pickAgent(e.clientX, e.clientY, { radiusPx: 22 }); } catch (_) { id = null; } }
     if (id !== hoverId) { hoverId = id; try { onFolkHover(id, { x: e.clientX, y: e.clientY }); } catch (err) { console.error('[input] hover', err); } }
   }, { capture: true, passive: true });
 
@@ -33,7 +33,9 @@ export function createInput({ ctx, world, agents = null, ui = null, marksRef = (
     const marks = marksRef();
     if (e.button !== 0 || !active() || world.rig.wasDrag() || (marks && marks.drawing) || pan) return;
     if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) return;
-    const id = agents ? agents.pickAgent(e.clientX, e.clientY, { radiusPx: 14 }) : null;
+    // 15:40: the folk are small from the overview: a near miss still counts (nearest folk within ~44 px)
+    let id = agents ? agents.pickAgent(e.clientX, e.clientY, { radiusPx: 14 }) : null;
+    if (id == null && agents) { try { id = agents.pickAgent(e.clientX, e.clientY, { radiusPx: 44 }); } catch (_) { id = null; } }
     if (id == null) return;
     const agent = game.state.agents.find(a => a.id === id);
     if (!agent) return;
