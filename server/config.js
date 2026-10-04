@@ -59,6 +59,7 @@ export function loadConfig(env = process.env, { dotenv = true } = {}) {
       visual: env.AGORA_MODEL_VISUAL || 'claude-opus-5-5',
       sketch: env.AGORA_MODEL_SKETCH || env.AGORA_MODEL_LOGIC || 'claude-fable-5-1',   // the massing sketch; a smaller model is fine here
       command: env.AGORA_MODEL_COMMAND || env.AGORA_MODEL_LOGIC || 'claude-fable-5-1', // the interpreter alone (measured 3.4-7.5 s on Fable at effort low)
+      social: env.AGORA_MODEL_SOCIAL || 'claude-haiku-4-5',   // 17:30 cost: the residents' gossip + letters (not building / generation)
     },
     stt: env.DEEPGRAM_API_KEY ? 'deepgram' : 'webspeech',
     // Mock codegen takes this long (ms) to "draw plans" so the demo shows folk working. Tests set it low.
@@ -74,7 +75,7 @@ export function loadConfig(env = process.env, { dotenv = true } = {}) {
     // AGORA_MINDS: on (live when a key is set, else mock) | off (the routes answer 'off', the game keeps the rules) | mock (always the mocks)
     minds: ['on', 'off', 'mock'].includes((env.AGORA_MINDS || 'on').trim().toLowerCase()) ? (env.AGORA_MINDS || 'on').trim().toLowerCase() : 'on',
     mindsModels: { persona: env.AGORA_MODEL_PERSONA || 'claude-haiku-4-5', director: env.AGORA_MODEL_DIRECTOR || env.AGORA_MODEL_LOGIC || 'claude-fable-5-1' },
-    mindsMaxPerMin: Number(env.AGORA_MINDS_MAX_PER_MIN || 60),          // the server's own cap on persona calls per minute (over it: mock answers, meta.budget)
-    directorEveryMs: Number(env.AGORA_DIRECTOR_EVERY_MS || 600000),     // the cadence the client is told to use (health.minds.directorEveryMs); Sueda floated hourly for real sessions
+    mindsMaxPerMin: Number(env.AGORA_MINDS_MAX_PER_MIN || 20),          // the server's own cap on persona calls per minute (over it: mock answers, meta.budget)
+    directorEveryMs: Number(env.AGORA_DIRECTOR_EVERY_MS || 1800000),     // the cadence the client is told to use (health.minds.directorEveryMs); Sueda floated hourly for real sessions
   };
 }

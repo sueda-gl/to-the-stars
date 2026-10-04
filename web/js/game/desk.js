@@ -10,7 +10,7 @@ const PURPOSE = { refusal: 'refusal', skill_answer: 'skill_answer', report: 'rep
   neighbour_alliance: 'envoy', neighbour_complaint: 'envoy', neighbour_thanks: 'gift_thanks', election: 'election' };
 const SHADELING = { first_contact: 'shadeling_contact', seed: 'shadeling_seed', golden_hour: 'shadeling_golden', farewell: 'shadeling_farewell' };
 
-export function createDesk({ game, net, ui, world, folk, stages = null, commands = null, live = () => false, societyEvery = 90000, log = () => {} } = {}) {
+export function createDesk({ game, net, ui, world, folk, stages = null, commands = null, live = () => false, societyEvery = 240000, log = () => {} } = {}) {
   const pending = new Map();      // letter id -> Promise<{subject, body, options}|null>
   const shade = new Map();        // shadeling meta.kind -> Promise
   let societyT = null, societyBusy = false, paused = false, lastSociety = performance.now();

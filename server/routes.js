@@ -52,6 +52,7 @@ const titleNoun = (request) => request.replace(/^(a|an|the)\s+/i, '').replace(/\
 
 export function createRoutes(ctx) {
   const { config, catalogue, mind, letters, assets, log, minds = null } = ctx;
+  const socialPlain = () => /haiku/i.test((config.models && config.models.social) || '');   // Haiku: no effort ladder, no fallbacks beta
   const live = !config.mock && mind;
   const models = config.models;
   const warn = (label, err) => log('warn', `${label} live failed (${err.code || 'error'}): ${err.message}${config.liveFallbackToMock ? ' -> mock' : ''}`);
@@ -149,7 +150,7 @@ export function createRoutes(ctx) {
       };
       return withFallback('society', async () => {
         const { data, usage, model } = await mind.structured({
-          model: models.logic, effort: 'medium', maxTokens: 16000, timeout: LIVE_TIMEOUTS.society, label: 'society',
+          model: models.social || models.logic, ...(socialPlain() ? { plain: true } : { effort: 'medium' }), maxTokens: socialPlain() ? 3000 : 16000, timeout: LIVE_TIMEOUTS.society, label: 'society',
           system: systemFor('society', catalogue), schema: SOCIETY_SCHEMA,
           user: userBlock({ snapshot, recent, wants }),
         });
@@ -167,7 +168,7 @@ export function createRoutes(ctx) {
       const mock = () => { const l = letters.letterFor({ purpose, agent, context, snapshot }); return { subject: l.subject, body: l.body, options: normaliseOptions(l.options), from: l.from, kind: l.kind }; };
       const r = await withFallback('letter', async () => {
         const { data, usage, model } = await mind.structured({
-          model: models.logic, effort: 'low', maxTokens: 16000, timeout: LIVE_TIMEOUTS.letter, label: 'letter',
+          model: models.social || models.logic, ...(socialPlain() ? { plain: true } : { effort: 'low' }), maxTokens: socialPlain() ? 2000 : 16000, timeout: LIVE_TIMEOUTS.letter, label: 'letter',
           system: systemFor('letter', catalogue), schema: LETTER_SCHEMA,
           user: userBlock({ purpose, agent, context, snapshot }),
         });
