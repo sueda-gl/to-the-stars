@@ -110,9 +110,13 @@
     ['a giant duck', u => { const b = ellP(146, 196, 92, 46), h = ellP(196, 128, 40, 40); marker(b, '#ffd21a', { reveal: u }); marker(h, '#ffd21a', { reveal: u }); if (u > .3) { ink(b); ink(h); const bk = new Path2D(); bk.moveTo(230, 128); bk.quadraticCurveTo(268, 132, 234, 146); bk.closePath(); marker(bk, '#ff7a59', { angle: 0, gap: 5, w: 5, ...flat }); ink(bk, 3); dot(206, 120, 4.6); stroke(() => { g.moveTo(92, 190); g.quadraticCurveTo(120, 168, 148, 196); }); g.save(); g.strokeStyle = '#5fc3d6'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.moveTo(50, 248); g.quadraticCurveTo(80, 238, 110, 248); g.quadraticCurveTo(140, 258, 170, 248); g.quadraticCurveTo(200, 238, 230, 248); g.stroke(); g.restore(); } }]
   ];
   const VERBS = ['doodling', 'colouring in', 'sketching', 'drawing', 'waking up'];
+  // 15:45 (Sueda): our own creatures, not doodles: painted portraits rendered from the game (assets/loader/*.png)
+  const CREATURES = [['flit', 'a flit'], ['floatie', 'a floatie'], ['loaf', 'a loaf'], ['twinkle', 'a twinkle'], ['glim', 'a glim'], ['moth', 'a moth']]
+    .map(([k, label]) => { const im = new Image(); im.src = new URL('../../assets/loader/' + k + '.png', document.currentScript ? document.currentScript.src : location.href).href; return { im, label }; });
+  const HELLO = ['waking up', 'meet', 'say hi to', 'here comes', 'painting'];
 
-  let idx = Math.floor(Math.random() * DOODLES.length), shownAt = performance.now(), verb = 0;
-  const DWELL = 1350;
+  let idx = 0, shownAt = performance.now(), verb = 0;
+  const DWELL = 1100;
   function drawDisc(now, pct) {
     const k = disc.width / 380;   // laid out in a 380 x 380 space
     g.setTransform(k, 0, 0, k, 0, 0); g.clearRect(0, 0, 380, 380);
@@ -126,14 +130,18 @@
       g.strokeStyle = '#ffd21a'; g.lineWidth = 11; g.beginPath(); g.arc(cx, cy, R, a0, a1); g.stroke();
     }
     g.save(); g.fillStyle = '#fbf2dc'; g.font = '700 16px Montserrat, system-ui, sans-serif'; g.textAlign = 'center'; g.globalAlpha = .9; g.fillText(Math.round(pct * 100) + '%', cx, cy + 150); g.restore();
-    // the doodle, scribbled in, with a little bob
-    const age = now - shownAt, u = Math.min(1, age / 520);
-    inkU = Math.min(1, Math.max(0, (age - 170) / 520));
+    // one of our creatures pops in, bobs and sways inside the ring
+    const c = CREATURES[idx % CREATURES.length], age = now - shownAt;
+    const t = Math.min(1, age / 420), pop = t < 1 ? 1 - Math.pow(1 - t, 3) * Math.cos(t * 9) * .9 : 1;
     g.save();
-    g.translate(cx - 150 * .9, cy - 150 * .94 + Math.sin(now / 380) * 2.5); g.scale(.9, .9);
-    g.translate(150, 150); g.rotate(Math.sin(now / 900) * .025); g.translate(-150, -150);
-    seed = 7 + idx * 101 + Math.floor(now / 140) % 3;   // the line 'boils' a little, like hand-drawn animation
-    DOODLES[idx][1](u);
+    g.beginPath(); g.arc(cx, cy, 158, 0, 6.3); g.clip();
+    const glow = g.createRadialGradient(cx, cy, 10, cx, cy, 158); glow.addColorStop(0, 'rgba(255, 226, 58, .16)'); glow.addColorStop(1, 'rgba(255, 226, 58, 0)');
+    g.fillStyle = glow; g.fillRect(cx - 160, cy - 160, 320, 320);
+    if (c.im.complete && c.im.naturalWidth) {
+      const sz = 214 * Math.max(.05, pop);
+      g.translate(cx, cy + Math.sin(now / 360) * 5); g.rotate(Math.sin(now / 800) * .06);
+      g.drawImage(c.im, -sz / 2, -sz / 2, sz, sz);
+    }
     g.restore();
   }
 
@@ -147,11 +155,11 @@
     sx.clearRect(0, 0, W, H);
     for (const st of stars) { sx.globalAlpha = .35 + .65 * (0.5 + 0.5 * Math.sin(now / 1000 * st.s + st.p)); sx.fillStyle = '#fff6e6'; sx.beginPath(); sx.arc(st.x, st.y, st.r, 0, 6.3); sx.fill(); }
     sx.globalAlpha = 1;
-    if (now - shownAt > DWELL) { let n; do n = Math.floor(Math.random() * DOODLES.length); while (n === idx); idx = n; shownAt = now; verb = (verb + 1) % VERBS.length; }
+    if (now - shownAt > DWELL) { idx = (idx + 1) % CREATURES.length; shownAt = now; verb = (verb + 1) % HELLO.length; }
     if (!done) target = Math.min(0.96, target + 0.00035);
     shown += (target - shown) * (done ? 0.25 : 0.06);
     drawDisc(now, Math.min(1, shown));
-    cap.textContent = `${VERBS[verb]} ${DOODLES[idx][0]}…`;
+    cap.textContent = `${HELLO[verb]} ${CREATURES[idx % CREATURES.length].label}…`;
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
