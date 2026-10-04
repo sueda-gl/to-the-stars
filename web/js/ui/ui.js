@@ -103,12 +103,12 @@ export function createUI({ root = document.body, onCommand, onLetterOption, onAg
   // ======================= voice: a small mark, a typed line, the live caption, the hint line =======================
   const voiceBar = (() => {
     const wave = h('span.ag-wave', { 'aria-hidden': 'true' }, Array.from({ length: 5 }, () => h('i')));
-    const mark = h('button.ag-mark', { type: 'button', 'aria-label': 'Click to speak (click again to send), or hold', html: iconSlot('mic', 30, MIC_SVG) + iconSlot('mic-live', 30, '') });
+    const mark = h('button.ag-mark', { type: 'button', 'aria-label': 'Speak: click to talk, click again to send', html: iconSlot('mic', 30, MIC_SVG) + iconSlot('mic-live', 30, '') + '<span class="ag-btnlbl">speak</span>' });
     const lbl = h('span.ag-mark__lbl', { 'aria-live': 'polite' });
     const input = h('input.ag-type__input', { type: 'text', placeholder: 'tell the folk what to make…', 'aria-label': 'Tell the folk what to make', autocomplete: 'off', spellcheck: false, enterKeyHint: 'send' });
     const form = h('form.ag-type', null, input, h('span.ag-type__keys', { html: '<span>enter</span> to send · <span>esc</span>' }));
     // 15:15: the mic is for SPEAKING; typing has its own small key next to it
-    const typeBtn = h('button.ag-typebtn', { type: 'button', 'aria-label': 'Type instead', title: 'type instead', html: iconSlot('type', 20, '⌨') });
+    const typeBtn = h('button.ag-typebtn', { type: 'button', 'aria-label': 'Write it instead', title: 'write', html: iconSlot('type', 28, '⌨') + '<span class="ag-btnlbl">write</span>' });
     typeBtn.addEventListener('click', e => { e.preventDefault(); e.currentTarget.blur(); if (clickListening) { clickListening = false; fire(onMic, false); } openTyping(); });
     const el = h('div.ag-voice', { 'data-state': 'idle' }, h('div.ag-voice__mark', null, mark, wave, lbl, typeBtn), form);
     const capTxt = h('div.txt');

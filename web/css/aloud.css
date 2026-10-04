@@ -482,3 +482,9 @@
    card lives at the bottom and used to cover it) */
 .ag-ui .ag-caption { top: calc(var(--ag-gut) + 70px) !important; bottom: auto !important; z-index: 60 !important; }
 .ag-caption::after { content: "you said"; position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font: 700 10px/1 Montserrat, sans-serif; letter-spacing: .18em; text-transform: uppercase; color: var(--pink, #ee3d84); }
+
+/* 15:55 speak + write: two equal buttons, both labelled, both clickable (the voice bar layer has pointer-events: none) */
+.ag-ui .ag-typebtn { pointer-events: auto !important; position: relative; width: 54px !important; height: 54px !important; margin-left: 12px; }
+.ag-mark, .ag-typebtn { overflow: visible; }
+.ag-btnlbl { position: absolute; left: 50%; top: calc(100% + 7px); transform: translateX(-50%); font: 700 10px/1 Montserrat, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--ink, #1d1b26); background: var(--pop-card, #fff8ec); padding: 3px 7px; border-radius: 99px; box-shadow: 0 0 0 1.5px var(--ink, #1d1b26); white-space: nowrap; pointer-events: none; }
+.ag-voice[data-state="listening"] .ag-mark .ag-btnlbl::after { content: " · click to send"; }
