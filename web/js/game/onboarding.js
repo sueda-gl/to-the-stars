@@ -207,10 +207,7 @@ export function createOnboarding({ game, ui, world, agents, opening, ministry = 
             setTimeout(home, 2600);
           } } });
       };
-      show('planets', { action: { label: 'Show me', onClick: go }, chips: [{ label: 'Not now', onClick: async () => {
-        if (voyage && voyage.away()) { guide.update({ action: null, chips: [], todo: 'Flying home…' }); try { await voyage.home(); } catch (e) { log('home', e.message); } const t0 = performance.now(); while (voyage.away() && performance.now() - t0 < 45000) await sleep(300); }
-        if (at('planets')) goto('letters');
-      } }] });
+      show('planets', { action: { label: 'Show me', onClick: go } });   // 17:05: the trip is part of the tour (no 'Not now')
     },
     ministry() {
       const m = ministry(); try { m && m.start(); } catch (e) { log('ministry', e.message); }
