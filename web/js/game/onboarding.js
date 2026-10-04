@@ -133,9 +133,11 @@ export function createOnboarding({ game, ui, world, agents, opening, ministry = 
       if (!w) { show('letters', { point: mailboxTarget, pointLabel: 'mailbox' }); return; }
       frameWriter(1600);
       try { mailDots && mailDots.teach(w.id); } catch (_) {}
-      show('letters', { title: `${w.name} has written to you`, body: `Click the red dot above ${w.name} to read it. Later letters also wait in the mailbox, top right.`,
-        pill: 'Click the red dot', todo: 'Click the red dot',
-        point: () => document.querySelector(`.ag-maildot.is-on[data-agent="${w.id}"]`), pointLabel: `${w.name}\u2019s letter` });
+      // 17:15 (Sueda): after the trip home the MAILBOX must be the obvious next move: the ring sits on it (then on the
+      // unread row once it is open); the red dot over the writer still works too
+      show('letters', { title: 'You\u2019ve got mail!', body: `${w.name} has written to you. Open your mailbox at the top right to read it. (You can also click the red dot above ${w.name}.)`,
+        pill: 'Open your mailbox', todo: 'Open your mailbox, top right',
+        point: mailboxTarget, pointLabel: 'open your mailbox' });
     },
     build() {
       show('build', {
@@ -245,7 +247,7 @@ export function createOnboarding({ game, ui, world, agents, opening, ministry = 
         let p = null; try { p = agents.screenOf(writer.id); } catch (_) {}
         const off = !p || Math.abs(p.x - innerWidth / 2) > innerWidth * .28 || Math.abs(p.y - innerHeight * .42) > innerHeight * .26;
         if (off && performance.now() - refocusAt > 2200) frameWriter(1600);
-        if (letterOpen() && ui.letters.openId === sent.welcome) complete('letters');
+        if (letterOpen()) complete('letters');   // from the mailbox or the red dot, any letter
       } else if (letterOpen()) complete('letters');
     }
     if (at('mark') && !done.mark) {
