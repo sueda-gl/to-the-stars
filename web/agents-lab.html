@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agents lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<style>
+  .lab { position: fixed; left: max(14px, 2.4vmin); top: max(14px, 2.4vmin); display: flex; flex-direction: column; gap: 6px; max-width: 220px;
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; color: var(--ink); z-index: 5; }
+  .lab h1 { font-weight: 400; font-style: italic; font-size: 22px; margin: 0 0 4px 4px; }
+  .lab .row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .lab button { font: inherit; font-size: 16px; line-height: 1; color: var(--ink); cursor: pointer; border: 0; border-radius: 999px; padding: 7px 12px 8px;
+    background: color-mix(in srgb, var(--paper) 90%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .lab button[aria-pressed="true"] { background: var(--ink); color: var(--paper); font-style: italic; }
+  .lab button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .lab .note { font-size: 14px; font-style: italic; opacity: .75; margin: 2px 4px; min-height: 1.2em; }
+  .tray { position: fixed; right: max(18px, 3.4vmin); top: max(18px, 3.4vmin); display: flex; gap: 6px; flex-direction: column; align-items: flex-end;
+    font-family: "Instrument Serif", Georgia, serif; color: var(--ink); z-index: 5; pointer-events: none; }
+  .tray .env { background: var(--paper); box-shadow: 0 0 0 1px rgba(61, 85, 136, .3), 0 6px 16px rgba(40, 20, 10, .12); border-radius: 6px; padding: 6px 12px 7px; font-size: 16px; }
+  .flyer { position: fixed; width: 34px; height: 22px; border-radius: 3px; background: #f4ead6; box-shadow: 0 0 0 1px rgba(61, 85, 136, .35); z-index: 6; pointer-events: none;
+    transition: transform .7s cubic-bezier(.5, 0, .2, 1), opacity .7s; }
+  .flyer::after { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4px 0 0 -4px; border-radius: 50%; background: #e0503f; }
+  .sheet { position: fixed; right: max(18px, 3vmin); top: 50%; transform: translateY(-50%); z-index: 6; display: none; max-width: min(760px, 62vw);
+    font-family: "Instrument Serif", Georgia, serif; color: var(--ink); background: color-mix(in srgb, var(--paper) 96%, transparent); border-radius: 14px;
+    padding: 16px 18px 14px; box-shadow: 0 0 0 1px rgba(61, 85, 136, .22), 0 14px 40px rgba(40, 20, 10, .2); }
+  .sheet.on { display: block; }
+  .sheet[data-kind="colour"] { top: auto; bottom: max(14px, 2vmin); right: 50%; transform: translateX(50%); max-width: min(980px, 92vw); padding: 12px 18px 10px; }
+  .sheet[data-kind="colour"] .rule { columns: 3; }
+  .sheet h2 { margin: 0 0 10px; font-weight: 400; font-style: italic; font-size: 22px; }
+  .sheet .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px 10px; }
+  .sheet figure { margin: 0; text-align: center; }
+  .sheet figure img { display: block; margin: 0 auto 4px; }
+  .sheet figcaption { font-size: 14px; line-height: 1.15; }
+  .sheet figcaption i { display: block; opacity: .7; font-size: 12.5px; }
+  .sheet .small { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; font-style: italic; opacity: .9; }
+  .sheet .rule { font-size: 14px; line-height: 1.3; margin: 0; padding: 0; list-style: none; columns: 2; column-gap: 22px; }
+  .sheet .rule li { break-inside: avoid; margin: 0 0 5px; }
+  .sheet .chip { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(61,85,136,.35); }
+  .hint { position: fixed; left: 50%; bottom: max(18px, 3.4vmin); transform: translateX(-50%); font-family: "Instrument Serif", Georgia, serif; font-style: italic;
+    color: var(--ink); background: color-mix(in srgb, var(--paper) 85%, transparent); padding: 6px 12px; border-radius: 999px; font-size: 15px; z-index: 4; }
+</style>
+</head>
+<body>
+<!-- The agents bridge on an empty cream plot: real paint engine, real sim (createGame), createAgents.
+     Our people are only flits and floaties, and they walk AND fly; envoys are the neighbours' peoples.
+     Drag to orbit, wheel to zoom, click a folk to pick it. #gouache #raw -->
+<div class="lab" aria-label="Agents lab">
+  <h1>Agents lab</h1>
+  <div class="row">
+    <button id="b-spawn">Fly-in arrival</button>
+    <button id="b-haul">Walk &amp; haul</button>
+    <button id="b-hammer">Hammer</button>
+  </div>
+  <div class="row">
+    <button id="b-letter">Letter delivery</button>
+    <button id="b-hopflight">Take off &amp; land</button>
+  </div>
+  <div class="row">
+    <button id="b-walk">Short walk</button>
+    <button id="b-joy">Celebrate</button>
+  </div>
+  <div class="row">
+    <button id="b-n1">Drop envoy</button>
+    <button id="b-n2">Loaf envoy</button>
+    <button id="b-n3">Third-nation envoy</button>
+    <button id="b-all">All three</button>
+  </div>
+  <div class="row">
+    <button id="b-gift">Gift out</button>
+    <button id="b-gift3">Gift across the bay</button>
+  </div>
+  <div class="row">
+    <button id="b-strike">Strike</button>
+    <button id="b-leave">Leave</button>
+    <button id="b-listen" aria-pressed="false">Listen</button>
+  </div>
+  <h1 style="font-size:18px;margin-top:6px">Arrival &amp; people</h1>
+  <div class="row">
+    <button id="b-sheet">Identity sheet</button>
+    <button id="b-fleets">Arrival in fleets</button>
+    <button id="b-intro">Introduce</button>
+  </div>
+  <div class="row">
+    <button id="b-hi" aria-pressed="false">Highlight</button>
+    <button id="b-cer">Ceremony</button>
+    <button id="b-release">Release fleets</button>
+  </div>
+  <div class="row">
+    <button id="b-busy">Busy build</button>
+    <button id="b-prod">Farm &amp; bakery</button>
+    <button id="b-bubbles">Bubbles</button>
+  </div>
+  <h1 style="font-size:18px;margin-top:6px">Letters &amp; portraits</h1>
+  <div class="row">
+    <button id="b-portraits" aria-pressed="false">Portraits</button>
+    <button id="b-pins">Letter tags</button>
+    <button id="b-colour" aria-pressed="false">Colour rule</button>
+  </div>
+  <div class="row">
+    <button id="b-pause" aria-pressed="false">Pause sim</button>
+    <button id="b-over">Overhead</button>
+    <button id="b-bird">Bird's-eye</button>
+    <button id="b-close">Close</button>
+  </div>
+  <div class="note" id="note"></div>
+</div>
+<div class="tray" id="tray"></div>
+<div class="sheet" id="sheet" aria-live="polite"></div>
+<div class="hint">drag to orbit · wheel to zoom · click a folk</div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { mountPaintUI } from './js/paint/ui.js';
+import { createGame } from './js/sim/index.js';
+import { strike, leave } from './js/sim/tasks.js';
+import { createAgents, createAgentNav } from './js/agents/agents.js';
+import { heightAt } from './js/globe/geography.js';
+
+const P = new URLSearchParams(location.search);
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.5, 1400);
+// default: the game's leader view (high oblique bird's-eye, ~60 deg down) at mid zoom; "Close" for eye level
+const focus = new THREE.Vector3(0, 0.6, 6);
+const orbit = { yaw: 0, pitch: 1.05, dist: 30 };
+function placeCam() {
+  const cp = Math.cos(orbit.pitch);
+  camera.position.set(focus.x + Math.sin(orbit.yaw) * cp * orbit.dist, focus.y + Math.sin(orbit.pitch) * orbit.dist, focus.z + Math.cos(orbit.yaw) * cp * orbit.dist);
+  camera.lookAt(focus);
+}
+placeCam();
+const ctx = createContext({ renderer, scene, camera, seed: +(P.get('seed') || 7) });
+const { V } = ctx;
+const backdrop = createBackdrop(ctx, { camBase: camera.position.clone() });
+
+// the ground: cream paper relief from geography.heightAt (the plot is level at y = 0), teal water below sea level
+const groundGeo = new THREE.PlaneGeometry(240, 240, 160, 160); groundGeo.rotateX(-Math.PI / 2);
+{
+  const p = groundGeo.attributes.position, c = new Float32Array(p.count * 3), land = new THREE.Color(0xe9dcc8), sea = new THREE.Color(0x4f9aa3), deep = new THREE.Color(0x2f6f8f), tmp = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const h = heightAt(p.getX(i), p.getZ(i));
+    p.setY(i, Math.max(h, -0.25));
+    if (h < 0) tmp.copy(sea).lerp(deep, Math.min(1, -h / 6)); else tmp.copy(land);
+    c.set([tmp.r, tmp.g, tmp.b], i * 3);
+  }
+  groundGeo.setAttribute('color', new THREE.BufferAttribute(c, 3)); groundGeo.computeVertexNormals();
+}
+const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+ground.receiveShadow = true; scene.add(ground);
+
+const game = createGame({ seed: 7 });
+const nav = createAgentNav(game);
+const folk = createFolk(ctx, backdrop, nav);
+const painter = createPainter(ctx, folk, { framing: (cam, w, h) => { cam.aspect = w / h; cam.fov = 40; } });
+addEventListener('resize', () => painter.resize());
+mountPaintUI(painter, { closeUp: false });
+if (!/raw|riso/.test(location.hash)) painter.setMode(1);   // Gouache only (ART_DIRECTION); #raw for debugging
+painter.resize();
+
+// --- a stand-in for the building layer: a site slab with stakes, a block once it's done ---
+const sites = new Map();
+const lam = c => new THREE.MeshLambertMaterial({ color: c });
+function siteMesh(b) {
+  const g = new THREE.Group(); g.position.set(b.x, 0, b.z); g.rotation.y = b.rot || 0;
+  const w = b.footprint.w, d = b.footprint.d;
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), lam(0xd9c4a0)); slab.position.y = 0.06; slab.receiveShadow = slab.castShadow = true; g.add(slab);
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.1, 0.12), lam(0xa8743f)); s.position.set(sx * (w / 2 - 0.1), 0.55, sz * (d / 2 - 0.1)); s.castShadow = true; g.add(s); });
+  scene.add(g); return g;
+}
+function doneMesh(b, g) {
+  const w = b.footprint.w, d = b.footprint.d;
+  if (b.category === 'nature' || /field|farm|garden|orchard|vineyard/.test(b.kind)) {   // a field: striped crop bands, flat
+    for (let i = 0; i < 6; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(w * 0.94, 0.08, d / 6 * 0.86), lam(i % 2 ? 0xb8c46a : 0x8fae5a)); s.position.set(0, 0.1, -d / 2 + d / 12 + i * d / 6); s.receiveShadow = true; g.add(s); }
+    return;
+  }
+  const box = new THREE.Mesh(new THREE.BoxGeometry(w * 0.86, 1.9, d * 0.86), lam(0xe8c9a0)); box.position.y = 0.95; box.castShadow = box.receiveShadow = true; g.add(box);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.66, 1.2, 4), lam(0xc0563e)); roof.position.y = 2.5; roof.rotation.y = Math.PI / 4; roof.castShadow = true; g.add(roof);
+}
+game.on('building:site', ({ building }) => { if (!sites.has(building.id)) sites.set(building.id, siteMesh(building)); painter.markDirty(); });
+game.on('building:done', ({ building }) => { const g = sites.get(building.id) || siteMesh(building); sites.set(building.id, g); doneMesh(building, g); painter.markDirty(); });
+
+// a stand-in stockpile (the world module draws the real one): crates, planks and stones at state.stockpile
+{
+  const s = game.state.stockpile || { x: -9, z: 13 }, g = new THREE.Group(); g.position.set(s.x, 0, s.z);
+  const box = (w, h, d, c, x, y, z, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = m.receiveShadow = true; g.add(m); };
+  box(0.6, 0.45, 0.45, 0xcf9455, -0.5, 0.23, 0); box(0.6, 0.45, 0.45, 0xcf9455, 0.15, 0.23, 0.1, 0.3); box(0.55, 0.42, 0.42, 0xc48a4c, -0.2, 0.66, 0.05, 0.1);
+  for (let i = 0; i < 4; i++) box(1.5, 0.08, 0.26, 0xd9a868, 0.9, 0.05 + i * 0.09, -0.6 + (i % 2) * 0.05, 1.2);
+  [[-1, 0.7], [-0.7, 1.0], [-1.25, 1.1]].forEach(([x, z]) => box(0.34, 0.24, 0.3, 0xd8cdbb, x, 0.12, z, x));
+  scene.add(g);
+}
+// --- the agents bridge ---
+const tray = document.getElementById('tray'), note = document.getElementById('note');
+const delivered = [];
+function onDelivered(msg) {
+  delivered.push(msg);
+  // the envelope leaves the creature's hands and flies into the tray
+  const fl = document.createElement('div'); fl.className = 'flyer';
+  const s = msg.screen || { x: innerWidth / 2, y: innerHeight * 0.7 };
+  fl.style.left = (s.x - 17) + 'px'; fl.style.top = (s.y - 11) + 'px'; document.body.append(fl);
+  const tr = tray.getBoundingClientRect();
+  requestAnimationFrame(() => requestAnimationFrame(() => { fl.style.transform = `translate(${tr.right - 40 - s.x}px, ${tr.top + 20 - s.y}px) scale(.8)`; fl.style.opacity = '.0'; }));
+  setTimeout(() => {
+    fl.remove();
+    const e = document.createElement('div'); e.className = 'env';
+    e.textContent = msg.kind === 'envoy' ? `A letter from ${msg.neighbourId}` : `A letter (${(msg.letterIds || []).join(', ')})`;
+    tray.prepend(e); while (tray.children.length > 5) tray.lastChild.remove();
+  }, 700);
+}
+const agents = createAgents(ctx, folk, game, null, { onDelivered });
+
+// --- camera: drag to orbit, wheel to zoom, click to pick ---
+let drag = null;
+renderer.domElement.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; });
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+  orbit.yaw -= dx * 0.005; orbit.pitch = Math.max(0.08, Math.min(1.3, orbit.pitch + dy * 0.004)); placeCam(); painter.markDirty();
+});
+addEventListener('pointerup', e => {
+  if (drag && drag.moved < 4) {
+    const id = agents.pickAgent(e.clientX, e.clientY);
+    // a folk with a letter waiting: clicking the folk opens it (as the envelope does)
+    const pinned = id != null && agents.pinFor(id);
+    if (pinned) { pinned.open(); drag = null; return; }
+    const a = id && game.state.agents.find(x => x.id === id);
+    const idt = id && agents.identity(id);
+    note.textContent = a ? `${a.name}, a ${agents.speciesOf(id)} (${a.trade}), mood ${Math.round(a.mood)}, ${a.status}${idt ? ' — ' + idt.words : ''}` : 'nobody there';
+    if (id) { agents.hop(id); agents.bubble(id, `Hi! I'm ${a.name}. I'm a ${a.trade}.`); }
+  }
+  drag = null;
+});
+renderer.domElement.addEventListener('wheel', e => { orbit.dist = Math.max(4, Math.min(80, orbit.dist * Math.exp(e.deltaY * 0.001))); placeCam(); painter.markDirty(); }, { passive: true });
+
+// --- buttons ---
+let paused = false;
+const $ = id => document.getElementById(id);
+const setPaused = v => { paused = v; $('b-pause').setAttribute('aria-pressed', String(v)); };
+const live = () => game.state.agents.filter(a => a.status !== 'left');
+const pick = (species, n = 1, skip = []) => live().filter(a => species.includes(a.species) && !skip.includes(a.id)).slice(0, n);
+// by the PAINTED species (our people are all flits and floaties; the sim keeps its own species for skills)
+const ours = (sp, n = 1) => live().filter(a => agents.speciesOf(a.id) === sp).slice(0, n);
+const lab = {
+  // the behaviour tests land the settlers loose (no squares); "Arrival in fleets" is the game's opening
+  spawnAll() { game.spawnAll({ fleets: false }); setPaused(false); note.textContent = 'six flits and six floaties fly down from the sky and land'; },
+  haul() {
+    setPaused(false);
+    const r = game.apply({ type: 'build', kind: 'house', at: { mode: 'pointer', x: 4, z: 3 } });
+    note.textContent = r.ok ? 'a house site: crates from the stockpile, then hammering' : r.reason;
+  },
+  hammer() {
+    // three flits and three floaties round a stake in front of the camera, sim paused so the pose holds
+    setPaused(true);
+    const c = { x: focus.x, z: focus.z - 5 };
+    const who = [...ours('flit', 3), ...ours('floatie', 3)];
+    // something to hammer: a frame of posts and a beam on a little slab
+    if (!lab.stake) {
+      const g = new THREE.Group(); g.position.set(c.x, 0, c.z);
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1.6), lam(0xd9c4a0)); slab.position.y = 0.05; slab.castShadow = slab.receiveShadow = true; g.add(slab);
+      [[-0.9, -0.6], [0.9, -0.6], [-0.9, 0.6], [0.9, 0.6]].forEach(([x, z]) => { const s = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.2, 0.14), lam(0xa8743f)); s.position.set(x, 0.6, z); s.castShadow = true; g.add(s); });
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.14, 0.16), lam(0xb98250)); beam.position.set(0, 1.12, 0.6); beam.castShadow = true; g.add(beam);
+      scene.add(g); lab.stake = g; painter.markDirty();
+      agents.extraObstacles.push([c.x, c.z, 1.25]);
+    }
+    // on the far side of the stake, so they hammer facing the camera
+    const away = Math.atan2(c.x - camera.position.x, c.z - camera.position.z);
+    who.forEach((a, i) => {
+      const ang = away + (i / (who.length - 1) - 0.5) * 2.8, r = 2.7;
+      agents.walkTo(a.id, c.x + Math.sin(ang) * r, c.z + Math.cos(ang) * r);
+      agents.debugPose(a.id, 'work', null, c);
+    });
+    note.textContent = 'hammering (sim paused)';
+  },
+  letter() {
+    setPaused(false);
+    game.sendLetter({ from: { kind: 'minister', id: null, name: 'The Minister' }, subject: 'A word', body: 'The folk are well.', kind: 'reply', day: game.state.day, read: false, options: [], resolved: false, effects: {}, meta: {} });
+    note.textContent = 'a courier brings the letter to you (walks if near, flies and lands if far)';
+  },
+  envoy(id) { const e = agents.envoyIn(id, { letterId: 'lab-' + id }); note.textContent = `a ${e.species} walks in from ${id} with a letter`; },
+  election() {
+    const group = { landed: false, members: [] };
+    ['n1', 'n2', 'n3'].forEach((id, i) => { const e = agents.envoyIn(id, { letterId: 'lab-all', slot: i - 1 }); e.group = group; e.primary = i === 0; group.members.push(e); });
+    note.textContent = 'one envoy from each nation: they wait for each other, then raise their letters together';
+  },
+  gift(id = 'n1') {
+    const carrier = ours('floatie', 1)[0];
+    agents.giftOut(id, { carrierId: id === 'n3' ? null : carrier && carrier.id, gift: id === 'n3' ? 'a crate of goods' : 'bread and lemons' });
+    note.textContent = `a gift flies out toward ${id}`;
+  },
+  // two flits and two floaties take off, fly across the plot and land; the rest stay put
+  hopFlight() {
+    setPaused(true);
+    const who = [...ours('flit', 2), ...ours('floatie', 2)];
+    who.forEach((a, i) => {
+      const r = agents.get(a.id); if (!r || !r.a) return;
+      const side = r.mv.x < focus.x ? 1 : -1;
+      agents.fly(a.id, focus.x + side * (4 + i * 1.6), focus.z - 2 + i * 1.4, { fly: true });
+    });
+    note.textContent = 'propellers spin up, parasols right themselves: across the plot and down again';
+  },
+  // a short stroll inside the work area: walked, never flown
+  shortWalk() {
+    setPaused(true);
+    live().forEach((a, i) => { const r = agents.get(a.id); if (r && r.mv && r.mv.mode === 'ground') agents.walkTo(a.id, r.mv.x + Math.cos(i * 2.1) * 3.5, r.mv.z + Math.sin(i * 2.1) * 3.5, { fly: false }); });
+    note.textContent = 'short hops inside the work area are walked';
+  },
+  joy() { live().forEach((a, i) => agents.celebrate(a.id, i * 0.25)); note.textContent = 'a little flight of joy, and back down'; },
+  strike() {
+    setPaused(false);
+    [...ours('flit', 2), ...ours('floatie', 2)].forEach(a => { a.mood = 20; a.loyalty = 40; strike(game, a); });
+    note.textContent = 'four folk go on strike in the square';
+  },
+  leave() {
+    setPaused(false);
+    const a = live().filter(x => x.status !== 'striking' && !(x.task && x.task.kind === 'deliver')).find(x => agents.speciesOf(x.id) === 'flit');
+    if (a) { a.mood = 5; a.loyalty = 5; leave(game, a); note.textContent = `${a.name} leaves for the neighbours`; }
+  },
+  // ---- arrival & people (ART_DIRECTION §11) ----
+  // the twelve settlers side by side, close up: every rotor / parasol and every trade's clothes
+  identitySheet({ over = false } = {}) {
+    setPaused(true);
+    const recs = [...agents.recs.values()].filter(r => r.a && r.state === 'live');
+    // flits in front, floaties behind them (the parasols need the room)
+    const fl = recs.filter(r => r.species === 'flit'), fo = recs.filter(r => r.species === 'floatie');
+    const c = { x: 0, z: 6 };
+    [fl, fo].forEach((row, j) => row.forEach((r, i) => {
+      agents.work.endRole(r, false); r.fleet = null; r.lock = null; r.flow = null; r.hi = false;
+      agents.fm.placeGround(r, c.x + (i - (row.length - 1) / 2) * 1.45, c.z - j * 1.9); r.face = 'camera'; r.carry = null; r.pose = null;
+    }));
+    if (over) lab.overhead(c.x, c.z - 1, 14); else lab.cam(0, 3.1, c.z + 7.4, 0, 0.55, c.z - 1.2);
+    note.textContent = 'the twelve: rotors, parasols, and clothes by trade';
+  },
+  cam(x, y, z, fx, fy, fz) { window.__lab.cam(x, y, z, fx, fy, fz); },
+  // the close overhead camera of the landing (ART_DIRECTION §11): ~20 m out, ~75 deg down
+  overhead(fx = 0, fz = 6, dist = 20, pitch = 1.31, yaw = 0) { focus.set(fx, 0.4, fz); orbit.dist = dist; orbit.pitch = pitch; orbit.yaw = yaw; placeCam(); painter.markDirty(); },
+  fleetIx: -1, layout: null,
+  // the game's opening, run by the sim (sim/fleets.js): they fly down straight into squares by trade
+  arrival() {
+    setPaused(false);
+    const c = game.state.spawn || { x: 0, z: 6 };
+    lab.overhead(c.x, c.z + 3, 22);
+    game.spawnAll();   // agent:spawn x12, then fleet:form (the bridge glides each one into its slot)
+    lab.layout = (game.state.fleets || []).map(f => agents.fleetInfo(f.id)).filter(Boolean);
+    note.textContent = lab.layout.map(f => f.caption).join(' · ');
+    return lab.layout;
+  },
+  // without the sim: the bridge's own squares (agents.formFleets) for whoever is on the plot
+  formFleets() {
+    setPaused(false);
+    lab.layout = agents.formFleets(agents.fleetsByTrade(), { centre: { x: 0, z: 6 } });
+    note.textContent = lab.layout.map(f => f.caption).join(' · ');
+    return lab.layout;
+  },
+  // the sim's roll-call: fleet:introduce per square (the lab's camera visits each, as the game's does), then the ask
+  introduce() {
+    if (game.state.fleets && game.state.fleets.length) return game.introduceFleets();
+    if (!lab.layout) lab.formFleets();
+    lab.fleetIx = (lab.fleetIx + 1) % lab.layout.length;
+    const f = lab.layout[lab.fleetIx];
+    lab.overhead(f.centre.x, f.centre.z, 13 + f.radius * 1.5);
+    return agents.introduceFleet(f.id);
+  },
+  chosen() { const o = game.state.agents.find(a => a.name === 'Olla') || game.state.agents[0]; return o && o.id; },
+  highlight() { const id = lab.chosen(), r = agents.get(id), on = !(r && r.hi); agents.highlight(id, on); $('b-hi').setAttribute('aria-pressed', String(on)); note.textContent = on ? 'choose your minister: click one of them' : ''; },
+  ceremony() {
+    const id = lab.chosen(); agents.highlight(id, false); $('b-hi').setAttribute('aria-pressed', 'false');
+    const a = game.state.agents.find(x => x.id === id); note.textContent = `${a.name} is elected minister`;
+    // the sim holds the ceremony when it asked (or the intro is running); otherwise the bridge's own
+    let held = false; const off = () => { held = true; }; game.on('ceremony:start', off);
+    if (game.electMinister) game.electMinister(id);
+    if (game.off) game.off('ceremony:start', off);
+    return held ? true : agents.ceremony(id);
+  },
+  release() { if (game.releaseFleets) game.releaseFleets(); agents.releaseFleets(); lab.layout = null; setPaused(false); note.textContent = 'back to work'; },
+  // a house with the whole crowd on it: crew + helpers, crates / planks / stones, the hand-up, flappers
+  busyBuild() {
+    agents.releaseFleets(); lab.layout = null;
+    setPaused(false);
+    const r = game.apply({ type: 'build', kind: 'house', at: { mode: 'pointer', x: 3, z: 4 } });
+    lab.overhead(-2, 7, 20);
+    note.textContent = r.ok ? 'a house: the crew and every idle folk nearby fetch, carry, hammer and hand up' : r.reason;
+    return r;
+  },
+  // finished workplaces: farmers hoe a field, bakers knead and carry trays of loaves
+  production() {
+    agents.releaseFleets(); lab.layout = null;
+    setPaused(false);
+    const out = [];
+    for (const [kind, x, z] of [['field', -6, -2], ['bakery', 6, 0]]) {
+      const r = game.apply({ type: 'build', kind, at: { mode: 'pointer', x, z } });
+      const b = r.ok && game.state.buildings[game.state.buildings.length - 1];
+      if (b) { b.progress = 1; b.cratesDelivered = b.cratesNeeded || 0; game.completeBuilding(b); out.push(b.id); }
+    }
+    lab.overhead(0, 2, 20);
+    note.textContent = 'farmers hoe the field, bakers knead and carry loaves';
+    return out;
+  },
+  bubbles() {
+    const lines = ['Hello! I bake the bread here.', 'The field needs more seeds. Can I plant beans?', 'I like the new house. It is warm.', 'I could open a little tea house by the lake!'];
+    const ids = game.state.agents.filter(a => a.status !== 'left').slice(0, 4).map(a => a.id);
+    ids.forEach((id, i) => agents.bubble(id, lines[i % lines.length], { ms: 9000 }));
+    note.textContent = 'paper speech bubbles over their heads';
+    return ids;
+  },
+  // ---- ART_DIRECTION §14: portraits and letters living in the world ----
+  // every settler's painted portrait at 96 px and at 40 px (the size the notifications use)
+  async portraits() {
+    const sheet = $('sheet');
+    if (sheet.classList.contains('on') && sheet.dataset.kind === 'portraits') { sheet.classList.remove('on'); $('b-portraits').setAttribute('aria-pressed', 'false'); return; }
+    const list = live().filter(a => agents.get(a.id) && agents.get(a.id).a);
+    const t0 = performance.now();
+    const urls = await Promise.all(list.map(a => agents.portrait(a.id, { size: 96 })));
+    const small = await Promise.all(list.map(a => agents.portrait(a.id, { size: 40 })));
+    const ms = Math.round(performance.now() - t0);
+    sheet.dataset.kind = 'portraits';
+    sheet.innerHTML = `<h2>Portraits · the twelve, painted</h2><div class="grid">${list.map((a, i) => `<figure><img width="96" height="96" src="${urls[i] || ''}" alt="${a.name}"><figcaption>${a.name}<i>${agents.speciesOf(a.id)} · ${a.trade}</i></figcaption></figure>`).join('')}</div>
+      <div class="small">at 40 px ${list.map((a, i) => `<img width="40" height="40" src="${small[i] || ''}" alt="">`).join('')}</div>`;
+    sheet.classList.add('on'); $('b-portraits').setAttribute('aria-pressed', 'true'); $('b-colour').setAttribute('aria-pressed', 'false');
+    note.textContent = `${list.length} portraits in ${ms} ms (cached per folk)`;
+    return list.length;
+  },
+  // three folk get a letter each (§15): a tiny paper tag over each sender: portrait, name, one line, 2-3 quick replies.
+  // Click a reply to answer it there; click the tag (or the folk) to open the letter (the game opens it in the inbox).
+  pinLetters() {
+    const who = [ours('flit', 2), ours('floatie', 1)].flat();
+    const L = [
+      { subject: 'May I open a tea house?', options: [{ label: 'Yes, open it', says: 'let them open the tea house' }, { label: 'Not yet', says: 'not yet' }, { label: 'Tell me more', says: 'tell me more about the tea house' }] },
+      { subject: 'The field is ready for seed', options: [{ label: 'Sow it', says: 'sow the field' }, { label: 'Wait for rain', says: 'wait for rain' }] },
+      { subject: 'The bridge creaks when the wind comes up the bay', options: [{ label: 'Fix the bridge', says: 'repair the bridge' }, { label: 'Send a gift (3 goods or 3 coin)', says: 'send a gift' }, { label: 'Ignore it', says: 'ignore it' }] }
+    ];
+    lab.replies = [];
+    const onOpen = (id, o) => { note.textContent = `open ${id} — the game opens it in the top-right inbox`; agents.setPinUnread(id, false); lab.opened = id; };
+    const onReply = (id, says) => { note.textContent = `${id}: “${says}” — answered from the tag`; lab.replies.push({ id, says }); };
+    who.forEach((a, i) => agents.letterPin(a.id, { letterId: 'lab-letter-' + a.id, from: a.name, subject: L[i % L.length].subject, replies: L[i % L.length].options, onOpen, onReply }));
+    // a second letter from the first sender: one tag with +1
+    if (who[0]) agents.letterPin(who[0].id, { letterId: 'lab-letter-2-' + who[0].id, from: who[0].name, subject: 'P.S. and the roof', replies: ['yes', 'no'], onOpen, onReply });
+    note.textContent = `letters wait over ${who.map(a => a.name).join(', ')}: a reply word answers it, the tag opens it`;
+    return who.map(a => a.id);
+  },
+  // ART_DIRECTION §13: the twelve close up + what was re-dyed on each
+  colourSheet() {
+    const sheet = $('sheet');
+    if (sheet.classList.contains('on') && sheet.dataset.kind === 'colour') { sheet.classList.remove('on'); $('b-colour').setAttribute('aria-pressed', 'false'); return; }
+    lab.identitySheet();
+    const chip = c => `<span class="chip" style="background:${c}"></span>`;
+    const rows = live().map(a => { const r = agents.get(a.id), cr = agents.colourRule(a.id), sw = (cr && cr.swaps) || [];
+      return `<li><b style="font-weight:400">${a.name}</b> <i>${r ? r.species : ''}</i> — ${sw.length ? sw.map(x => `${chip(x.from)} → ${chip(x.to)}`).join(' ') : '<i>nothing yellow</i>'}</li>`; });
+    sheet.dataset.kind = 'colour';
+    sheet.innerHTML = `<h2>No green and yellow on a creature</h2><ul class="rule">${rows.join('')}</ul>`;
+    sheet.classList.add('on'); $('b-colour').setAttribute('aria-pressed', 'true'); $('b-portraits').setAttribute('aria-pressed', 'false');
+    note.textContent = 'reference caps re-dyed in our layer; identity pieces never yellow on a flit';
+  },
+  listen() { const on = agents.crowdListen(!agents.listening); $('b-listen').setAttribute('aria-pressed', String(on)); note.textContent = on ? 'they stop and listen' : ''; }
+};
+$('b-spawn').onclick = () => lab.spawnAll();
+$('b-haul').onclick = () => lab.haul();
+$('b-hammer').onclick = () => lab.hammer();
+$('b-letter').onclick = () => lab.letter();
+['n1', 'n2', 'n3'].forEach(n => $('b-' + n).onclick = () => lab.envoy(n));
+$('b-all').onclick = () => lab.election();
+$('b-hopflight').onclick = () => lab.hopFlight();
+$('b-walk').onclick = () => lab.shortWalk();
+$('b-joy').onclick = () => lab.joy();
+$('b-gift').onclick = () => lab.gift('n1');
+$('b-gift3').onclick = () => lab.gift('n3');
+$('b-strike').onclick = () => lab.strike();
+$('b-leave').onclick = () => lab.leave();
+$('b-listen').onclick = () => lab.listen();
+$('b-pause').onclick = () => setPaused(!paused);
+$('b-portraits').onclick = () => lab.portraits();
+$('b-pins').onclick = () => lab.pinLetters();
+$('b-colour').onclick = () => lab.colourSheet();
+$('b-sheet').onclick = () => lab.identitySheet();
+$('b-fleets').onclick = () => lab.arrival();
+$('b-intro').onclick = () => lab.introduce();
+// the game's camera follows the roll-call; the lab's does too
+game.on('fleet:introduce', ({ fleetId }) => { const f = agents.fleetInfo(fleetId); if (f) { lab.overhead(f.centre.x, f.centre.z, 14 + f.radius * 1.4); note.textContent = f.caption; } });
+game.on('election:ask', ({ text }) => { const c = game.state.spawn || { x: 0, z: 6 }; lab.overhead(c.x, c.z + 3, 22); note.textContent = text; });
+$('b-hi').onclick = () => lab.highlight();
+$('b-cer').onclick = () => lab.ceremony();
+$('b-release').onclick = () => lab.release();
+$('b-busy').onclick = () => lab.busyBuild();
+$('b-prod').onclick = () => lab.production();
+$('b-bubbles').onclick = () => lab.bubbles();
+$('b-over').onclick = () => lab.overhead(0, 6, 20);
+$('b-bird').onclick = () => { orbit.pitch = 1.05; orbit.dist = 30; placeCam(); painter.markDirty(); };
+$('b-close').onclick = () => { orbit.pitch = 0.3; orbit.dist = 15; placeCam(); painter.markDirty(); };
+
+// --- loop (and a fixed-step driver for headless shots) ---
+const clock = new THREE.Clock();
+let simT = 0;
+function stepAll(dt, t) {
+  if (!paused) game.tick(dt);
+  folk.update(dt, t);
+  agents.update(dt, t);
+}
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  if (!window.__manual) { simT += dt; stepAll(dt, simT); painter.frame(dt, simT, tt => backdrop.update(tt)); }
+  requestAnimationFrame(frame);
+}
+frame();
+window.__lab = {
+  THREE, ctx, game, folk, agents, painter, camera, focus, orbit, lab, delivered, sites,
+  setPaused,
+  cam(x, y, z, fx, fy, fz) { if (fx !== undefined) focus.set(fx, fy, fz); const d = V(x, y, z).sub(focus); orbit.dist = d.length(); orbit.pitch = Math.asin(d.y / orbit.dist); orbit.yaw = Math.atan2(d.x, d.z); placeCam(); painter.markDirty(); },
+  // run the world forward deterministically (headless): n steps of dt, then paint one frame
+  run(seconds, dt = 1 / 30) { window.__manual = true; const n = Math.round(seconds / dt); for (let i = 0; i < n; i++) { simT += dt; stepAll(dt, simT); } painter.markDirty(); painter.frame(dt, simT, tt => backdrop.update(tt)); return simT; },
+  paint() { agents.placeBubbles(); agents.placePins(); painter.markDirty(); painter.frame(0, simT, tt => backdrop.update(tt)); },
+  live() { window.__manual = false; clock.getDelta(); }
+};
+if (P.has('spawn')) lab.spawnAll();
+</script>
+</body>
+</html>

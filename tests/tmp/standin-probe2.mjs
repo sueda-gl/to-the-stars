@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--use-angle=metal'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+await p.goto('http://localhost:8870/?intro=none&autostart=1&opening=none', { waitUntil: 'load' });
+await p.waitForFunction('window.__agora && window.__agora.introDone', { timeout: 90000 });
+await new Promise(r => setTimeout(r, 2000)); await p.keyboard.press('Escape'); await new Promise(r => setTimeout(r, 800));
+p.evaluate(() => window.__agora.stages.goMoon());
+await new Promise(r => setTimeout(r, 4300));
+console.log(JSON.stringify(await p.evaluate(() => { const A = window.__agora; const u = A.planet.post.post.uniforms; const s = A.stages.standin, U = s.uniforms; const val = k => U[k] && (U[k].value && U[k].value.toArray ? U[k].value.toArray() : U[k].value); return { blend: u.uBlend.value, day: A.planet.daylight, fish: u.uFish.value, follow: A.planet.state().followDescent, U: Object.fromEntries(Object.keys(U).map(k => [k, val(k)])), scale: s.scale, vis: s.group.visible, children: s.group.children.length, childVis: s.group.children.map(c => c.visible).join('') }; })));
+await p.screenshot({ path: 'shots/voyage-debug/p-now.png' });
+await p.evaluate(() => { window.__agora.planet.autoBlend(false); window.__agora.planet.setBlend(0); });
+await new Promise(r => setTimeout(r, 300)); await p.screenshot({ path: 'shots/voyage-debug/p-grain.png' });
+await b.close();

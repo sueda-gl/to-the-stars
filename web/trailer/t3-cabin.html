@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALOUD trailer: cabin and space (t3 + t4)</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; }
+  /* like her reference: the canvas fills the window at min(devicePixelRatio, 2) (TRAILER.md paint settings rule) */
+  canvas { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  canvas.off { visibility: hidden; }
+  #fade { position: fixed; inset: 0; background: #05060d; opacity: 0; pointer-events: none; z-index: 5; }
+</style>
+</head>
+<body>
+<!-- ALOUD trailer beats t3 (CABIN) + t4 (SPACE). Full-bleed, no chrome, a fixed-clock timeline:
+       window.__shot = { duration, seek(t) -> Promise, play(), done, ready, shots, cuts }
+       ?t=4.2            render one still at t and stop
+       ?shot=porthole|glass|space|cabin   only that shot (its own 0..duration); default: all three, hard cuts
+                         (the old names still work: pov = porthole, ots = glass)
+       ?w=&h=&dpr=       fixed render size for recording (default: the window at min(dpr, 2)); ?autoplay=1 plays
+     Shots: porthole (inside the dark cabin, behind one of our flits in a glass bubble helmet, a silhouette before the
+     big white ceramic porthole; her Tower Planet's limb outside, the sun cresting it), glass (from space, through the
+     porthole: our folk pressed to the glass, faces in planet light), space (her planet's space: the craft streaks
+     from Earth toward Plisse on blue-white thrusters). -->
+<div id="fade"></div>
+<script src="../vendor/three.min.js"></script>
+<script type="module" src="../js/trailer/t3-cabin.js"></script>
+</body>
+</html>

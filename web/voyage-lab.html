@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voyage lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<style>
+  /* lab chrome in the Red arch's own tokens: paper, ink, Instrument Serif, pill buttons with a 1px ink ring */
+  :root { --paper: #f3ecdc; --ink: #3d5588; --red: #e0503f; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f3ecdc; }
+  #earthImg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; transform-origin: 50% 0%; }
+  body.img #earthImg { display: block; }
+  body.img canvas:not(.agv-passage) { display: none; }
+  .lab { position: fixed; top: 14px; left: 14px; z-index: 60; width: 248px; padding: 12px 12px 10px; border-radius: 14px;
+    background: rgba(243, 236, 220, 0.9); box-shadow: 0 0 0 1px rgba(61, 85, 136, 0.35); backdrop-filter: blur(6px);
+    font-family: "Instrument Serif", Georgia, serif; color: var(--ink); }
+  .lab h1 { margin: 0 0 2px; font-weight: 400; font-style: italic; font-size: 24px; }
+  .lab .st { font-size: 14px; margin-bottom: 8px; opacity: .8; min-height: 1.2em; }
+  .lab .row { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
+  .lab .lbl { width: 100%; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .6; margin-top: 4px; }
+  .lab button { font: inherit; font-size: 15px; color: var(--ink); background: var(--paper); border: 0; border-radius: 999px;
+    padding: 4px 11px; box-shadow: 0 0 0 1px var(--ink); cursor: pointer; }
+  .lab button:hover { background: #fff8ea; }
+  .lab button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .lab button.go { background: var(--red); color: var(--paper); box-shadow: 0 0 0 1px var(--red); }
+  .lab input[type=range] { width: 100%; accent-color: var(--ink); }
+  .lab .min { position: absolute; top: 10px; right: 12px; padding: 0 8px; font-size: 14px; }
+  .lab.folded > :not(h1):not(.min) { display: none; }
+</style>
+</head>
+<body>
+<!-- Voyage lab: the Earth (the Red arch rebuilt from web/js/paint + the sky moon), the passage, and the shadelings'
+     meadow (web/worlds/lounge.html, byte-identical) driven from outside. ?earth=image uses the static painting.
+     ?moon=only frames the moon close. ?still=out|home&p=0.5 paints a frozen passage frame. window.__lab for tests. -->
+<img id="earthImg" src="assets/backdrop-reference.png" alt="">
+<div class="lab" id="lab">
+  <h1>Voyage lab</h1><button class="min" id="fold" title="Fold">&ndash;</button>
+  <div class="st" id="st">Earth</div>
+  <div class="row"><span class="lbl">Voyage</span>
+    <button class="go" id="depart">Depart</button><button id="departSnap">Depart (snapshot)</button>
+    <button id="arrive">Arrive</button><button id="home">Return home</button></div>
+  <div class="row"><span class="lbl">On the moon</span>
+    <button id="seed">Offer a seed</button><button id="golden" aria-pressed="false">Golden hour</button>
+    <button id="painted" aria-pressed="true">Painted</button><button id="chrome" aria-pressed="true">Hide its chrome</button>
+    <button id="lookL">Look &larr;</button><button id="lookR">Look &rarr;</button><button id="lookH">Opening view</button></div>
+  <div class="row"><span class="lbl">Earth sky</span>
+    <button data-mode="0" aria-pressed="true">Riso</button><button data-mode="1">Gouache</button><button data-mode="2">Raw</button>
+    <button id="ring" aria-pressed="false">Ring</button><button id="glow" aria-pressed="false">Halo</button>
+    <button id="lift">Lift</button><button id="land">Land</button></div>
+  <div class="row"><span class="lbl">Passage still</span>
+    <input type="range" id="pp" min="0" max="1" step="0.01" value="0.5">
+    <button id="stillOut">Outbound</button><button id="stillHome">Home</button><button id="stillOff">Off</button></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createKit } from './js/paint/kit.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { buildRedArch, referenceNav, camBase, lookBase, CLOSE_FOCUS } from './js/paint/redArch.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { createOrbitRig } from './js/paint/ui.js';
+import { createSkyMoon } from './js/world/moon.js';
+import { createVoyage } from './js/voyage/voyage.js';
+
+const Q = new URLSearchParams(location.search);
+const imageEarth = Q.get('earth') === 'image';
+if (imageEarth) document.body.classList.add('img');
+const $ = id => document.getElementById(id);
+const st = $('st');
+
+// ---------- the Earth, three ways ----------
+// coast (default): the game's opening, an empty cream plot by the sea under the Red arch backdrop, a few folk,
+//   two cypresses, and the moon in the sky. This is the truthful preview of createSkyMoon.
+// arch: the Red arch itself (the moon sits in the arch's window).   image: the static reference painting.
+const earthMode = imageEarth ? 'image' : (Q.get('earth') || 'coast');
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.5, 1200);
+const coast = earthMode !== 'arch';
+const CAM = coast ? { base: new THREE.Vector3(0, 5.5, 19), look: new THREE.Vector3(0, 3.2, -10) } : { base: camBase, look: lookBase };
+camera.position.copy(CAM.base); camera.lookAt(CAM.look);
+const ctx = createContext({ renderer, scene, camera, seed: coast ? 7 : 11 });
+const kit = createKit(ctx);
+const backdrop = createBackdrop(ctx, { camBase: CAM.base });
+let arch = null, nav;
+if (coast) {
+  const { V, R } = ctx, HALF = 18;
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(140, 60), new THREE.MeshLambertMaterial({ color: 0xe9dcc8 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.z = -2; ground.receiveShadow = true; scene.add(ground);
+  kit.cypress(-9, -4, 7.5, 0.9); kit.cypress(-11.5, -1, 5.5, 0.75); kit.cypress(10, -6, 6.5, 0.85);
+  kit.bush(-6.5, -2.5, 1.2, 2, kit.PALETTES.PINK, 1.2, 0.5); kit.bush(8.2, -3.5, 1.0, 2, kit.PALETTES.RED, 1.1, 0.4);
+  kit.finishLeaves();
+  nav = {
+    obstacles: [[-9, -4, 1.2], [-11.5, -1, 1], [10, -6, 1.1]], spots: [[-3, 2], [3, 3], [0, -2], [-5, 4], [5, 1], [-1, 6], [2, -5]], closeFocus: V(0, 1.1, 0),
+    pickTarget(a) { a.path = [V(R(-HALF + 1, HALF - 1), 0, R(-10, 10))]; },
+    bounds(p) { p.x = Math.max(-HALF, Math.min(HALF, p.x)); p.z = Math.max(-12, Math.min(12, p.z)); },
+    extraPush() {}, onArrive() {},
+    flyTarget(f) { f.route = [V(R(-HALF + 2, HALF - 2), R(2.4, 6.2), R(-10, 8))]; },
+    floatTarget(f) { f.route.push(V(R(-HALF + 2, HALF - 2), R(3.2, 6.8), R(-10, 8))); },
+    flyPush(f, want) { if (Math.abs(f.pos.x) > HALF - 1) want.x -= Math.sign(f.pos.x) * 2; if (Math.abs(f.pos.z) > 11) want.z -= Math.sign(f.pos.z) * 2; }
+  };
+} else { arch = buildRedArch(ctx, kit); nav = referenceNav(ctx); }
+const folk = createFolk(ctx, backdrop, nav);
+const counts = coast ? [4, 3, 3, 3, 4, 3, 3] : [6, 5, 4, 4, 6, 5, 4];
+['puffer', 'loaf', 'drop', 'scoot', 'flit', 'pip', 'floatie'].forEach((sp, k) => { for (let i = 0; i < counts[k]; i++) folk.make[sp](i); });
+if (coast) [...folk.flits, ...folk.floaties].forEach((f, i) => { f.pos.set(-8 + (i % 5) * 4, f.pos.y, -4 + (i % 3) * 4); f.root.position.copy(f.pos); });
+folk.update(0.016, 0);
+// the moon: up and left of the sun, clear of the wall (arch) or high over the sea (coast)
+const moonPos = coast ? new THREE.Vector3(-138, 97, -323) : new THREE.Vector3(-84, 107, -335);
+const moon = createSkyMoon(ctx, { position: moonPos, radius: coast ? 24 : 16 });
+const painter = createPainter(ctx, folk, coast ? { framing: (cam, w, h) => { cam.aspect = w / h; cam.fov = w / h < 1 ? 66 : 50; } } : {});
+addEventListener('resize', () => painter.resize());
+const rig = coast ? { place() { camera.position.copy(CAM.base); camera.lookAt(CAM.look); }, update() {} }
+  : createOrbitRig(painter, { camBase, lookBase, closeFocus: CLOSE_FOCUS });
+painter.resize();
+
+// ---------- lift-off / landing: the reference implementation of the hooks game.js should pass ----------
+// k = 0 standing on the coast, 1 = tipped up at the moon. The camera rises and its aim swings onto the moon.
+let liftK = 0, liftAnim = null;
+const _look = new THREE.Vector3(), _aim = new THREE.Vector3();
+const LIFT_AIM = new THREE.Vector3(90, -55, 0);   // aim a little below-right of the moon: the sky fills the frame, the moon rides high left
+function placeLifted() {
+  if (liftK <= 0) return;
+  const k = liftK * liftK * (3 - 2 * liftK);
+  camera.position.y += 9 * k; camera.position.z -= 3 * k;
+  _look.copy(CAM.look).lerp(_aim.copy(moonPos).add(LIFT_AIM), k);
+  camera.lookAt(_look);
+}
+function animateLift(to, ms) {
+  liftAnim = { from: liftK, to, t0: performance.now(), ms };
+  if (imageEarth) {   // the painting just drops away (and back)
+    const img = $('earthImg'); img.style.transition = `transform ${ms}ms cubic-bezier(.55,0,.75,.4)`;
+    img.style.transform = to ? 'translateY(38%) scale(1.06)' : 'none';
+  }
+}
+// where the sky moon sits on screen right now (css px), so the passage can pick it up exactly there
+const _mp = new THREE.Vector3(), _mr = new THREE.Vector3();
+function moonScreen() {
+  if (imageEarth) return null;
+  _mp.copy(moonPos).project(camera);
+  _mr.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(moon.userData.radius).add(moonPos).project(camera);
+  if (_mp.z > 1) return null;
+  const x = (_mp.x + 1) / 2 * innerWidth, y = (1 - _mp.y) / 2 * innerHeight;
+  return { x, y, r: Math.hypot((_mr.x + 1) / 2 * innerWidth - x, (1 - _mr.y) / 2 * innerHeight - y) };
+}
+const hooks = { liftOff: ms => animateLift(1, ms), land: ms => animateLift(0, ms), moonScreen };
+
+// ---------- the voyage ----------
+const voyage = createVoyage({
+  container: document.body, hooks, log: (...a) => console.log('[voyage]', ...a),
+  ...(Q.get('lounge') ? { src: Q.get('lounge') } : {}),   // ?lounge=<url> (tests: a page that never loads)
+  onFail: e => { st.textContent = 'The lounge did not load: ' + e.message; },
+  onArrive: () => { st.textContent = 'On the moon: the shadelings’ meadow'; },
+  onReturn: () => { st.textContent = 'Home on the coast'; }
+});
+let lastState = 'earth';
+const label = () => {
+  if (voyage.state === lastState) return;
+  lastState = voyage.state;
+  const T = { departing: 'Lifting off\u2026', passage: 'The passage\u2026', arriving: 'Arriving\u2026', returning: 'Going home\u2026' };
+  if (T[lastState]) st.textContent = T[lastState];
+};
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let paused = false;   // on the moon the Earth stops painting (as game.js should)
+const beforeDraw = t => { rig.place(); placeLifted(); backdrop.update(t); if (arch) arch.update(t); };
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  if (liftAnim) {
+    const u = Math.min(1, (performance.now() - liftAnim.t0) / liftAnim.ms);
+    liftK = liftAnim.from + (liftAnim.to - liftAnim.from) * (liftAnim.to > liftAnim.from ? u * u : 1 - (1 - u) * (1 - u));
+    painter.markDirty();
+    if (u >= 1) liftAnim = null;
+  }
+  paused = voyage.state === 'moon';
+  if (!paused && !imageEarth) {
+    folk.update(dt, t); rig.update(dt);
+    painter.frame(dt, t, beforeDraw);
+  }
+  label();
+  requestAnimationFrame(frame);
+}
+frame();
+
+// ---------- controls ----------
+const press = (b, on) => b.setAttribute('aria-pressed', String(on));
+$('depart').onclick = () => voyage.depart();
+$('departSnap').onclick = () => {
+  if (imageEarth) return voyage.depart($('earthImg'));
+  painter.renderPainted(); voyage.depart(renderer.domElement);   // capture in the same task as the draw
+};
+$('arrive').onclick = () => voyage.arrive();
+$('home').onclick = () => voyage.returnHome();
+$('seed').onclick = async () => {
+  const r = await voyage.driver.dropSeed('auto'); st.textContent = r.ok ? `Seed offered at (${r.world.x.toFixed(1)}, ${r.world.z.toFixed(1)})` : 'No grass in view';
+  if (r.reframed) r.reframed.then(c => { if (c) st.textContent += ', and back to the room'; });
+};
+// flip the pill at once (so a fast double click means on-then-off), then settle on what the driver reports
+// for the latest click only
+const switchTo = (id, fn) => { let seq = 0; $(id).onclick = async () => {
+  const b = $(id), on = b.getAttribute('aria-pressed') !== 'true', my = ++seq; press(b, on);
+  const got = await fn(on); if (my === seq) press(b, got);
+}; };
+switchTo('golden', on => voyage.driver.setGoldenHour(on));
+switchTo('painted', on => voyage.driver.setPainted(on));
+switchTo('chrome', on => voyage.driver.hideOwnChrome(on));
+$('lookL').onclick = () => voyage.driver.look(-140, 0);
+$('lookR').onclick = () => voyage.driver.look(140, 0);
+$('lookH').onclick = () => voyage.driver.lookHome();
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { painter.setMode(+b.dataset.mode); document.querySelectorAll('[data-mode]').forEach(o => press(o, o === b)); });
+$('ring').onclick = () => { const on = $('ring').getAttribute('aria-pressed') !== 'true'; moon.userData.setRing(on); press($('ring'), on); painter.markDirty(); };
+$('glow').onclick = () => { const on = $('glow').getAttribute('aria-pressed') !== 'true'; moon.userData.setGlow(on ? 1 : 0); press($('glow'), on); painter.markDirty(); };
+$('lift').onclick = () => hooks.liftOff(1400);
+$('land').onclick = () => hooks.land(1400);
+let stillDir = null;
+const paintStill = () => stillDir && voyage.still(stillDir, +$('pp').value);
+$('pp').oninput = paintStill;
+$('stillOut').onclick = () => { stillDir = 'out'; paintStill(); };
+$('stillHome').onclick = () => { stillDir = 'home'; paintStill(); };
+$('stillOff').onclick = () => { stillDir = null; voyage.el.classList.remove('agv-on'); };
+$('fold').onclick = () => $('lab').classList.toggle('folded');
+if (Q.get('still')) { stillDir = Q.get('still'); $('pp').value = Q.get('p') || 0.5; requestAnimationFrame(paintStill); }
+if (Q.get('lab') === '0') $('lab').style.display = 'none';
+if (Q.get('ring') === '1') $('ring').click();
+if (Q.get('mode')) document.querySelector(`[data-mode="${Q.get('mode')}"]`).click();
+
+window.__lab = { voyage, driver: voyage.driver, painter, moon, hooks, ctx, camera, setLift: k => { liftK = k; painter.markDirty(); }, get liftK() { return liftK; } };
+</script>
+</body>
+</html>

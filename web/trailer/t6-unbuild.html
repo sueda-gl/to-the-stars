@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALOUD · t6 unbuild</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0d0c10; }
+  /* like her reference: the canvas fills the window at min(devicePixelRatio, 2) (TRAILER.md paint settings rule) */
+  canvas { position: fixed; left: 0; top: 0; display: block; }
+</style>
+</head>
+<body>
+<!-- ALOUD trailer t6: the rewind. A developed city on the game's seaside map un-builds itself (paint -> pencil -> gone),
+     back to the empty land. Fixed clock: window.__shot = { duration, marks, seek(t), play(), done }. ?t=4.5 renders one
+     still; ?hold leaves it idle for a capture script; ?loop=1 loops. ?w=&h=&dpr= fixed render size for recording
+     (e.g. ?w=1920&h=1080&dpr=2), default: the window at min(dpr, 2). -->
+<script src="../vendor/three.min.js"></script>
+<script src="../vendor/Reflector.js"></script>
+<script type="module" src="../js/trailer/t6-unbuild.js"></script>
+</body>
+</html>

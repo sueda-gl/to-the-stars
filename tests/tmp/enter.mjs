@@ -1,0 +1,16 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--use-angle=metal'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('pageerror', e => console.log('[pageerror]', e.message));
+await p.goto('http://localhost:8870/?intro=none&autostart=1&opening=auto', { waitUntil: 'load' });
+await p.waitForFunction('window.__agora && window.__agora.introDone', { timeout: 60000 }).catch(() => console.log('introDone timeout'));
+await new Promise(r => setTimeout(r, 45000));
+await p.keyboard.press('Escape'); await new Promise(r => setTimeout(r, 800));
+const state = () => p.evaluate(() => ({ active: document.activeElement && (document.activeElement.tagName + '#' + document.activeElement.id + '.' + document.activeElement.className).slice(0, 80), typing: !!document.querySelector('input:focus, textarea:focus'), inputs: [...document.querySelectorAll('input')].map(i => i.className + ':' + getComputedStyle(i).display + ':' + (i.offsetParent ? 'vis' : 'hid')).slice(0, 5), letterOpen: !!document.querySelector('.ag-reader.is-open, .is-reading, [data-open="true"]') }));
+console.log('before', JSON.stringify(await state()));
+await p.mouse.click(720, 500); await new Promise(r => setTimeout(r, 400));
+console.log('after click', JSON.stringify(await state()));
+await p.keyboard.press('Enter'); await new Promise(r => setTimeout(r, 600));
+console.log('after enter', JSON.stringify(await state()));
+await p.screenshot({ path: 'shots/tmp-enter.png' });
+await b.close();

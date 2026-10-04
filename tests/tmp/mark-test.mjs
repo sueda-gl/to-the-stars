@@ -1,0 +1,12 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--use-angle=metal'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('pageerror', e => console.log('[pageerror]', e.message));
+await p.goto('http://localhost:8870/create.html', { waitUntil: 'networkidle0' }); await p.waitForFunction('window.__create');
+await p.mouse.click(1000, 600); await new Promise(r => setTimeout(r, 400));
+const mk = await p.evaluate(() => document.getElementById('markX').style.display);
+await p.screenshot({ path: 'shots/create/6-mark.png' });
+await p.evaluate(() => window.__create.handle('put a house here', null));
+await new Promise(r => setTimeout(r, 8000)); await p.screenshot({ path: 'shots/create/7-house-on-mark.png' });
+console.log('mark shown:', mk, 'placed:', await p.evaluate(() => window.__create.placed.map(x => [x.name, x.x.toFixed(1), x.z.toFixed(1)])));
+await b.close();

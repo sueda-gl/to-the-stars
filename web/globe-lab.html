@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Globe lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<style>
+  /* lab chrome in the reference's pill grammar (paint.css tokens) */
+  .lab { position: fixed; left: max(18px, 3.4vmin); top: max(18px, 3.4vmin); display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; color: var(--ink); max-height: calc(100vh - 120px); overflow-y: auto; }
+  .lab h1 { margin: 0 0 2px; font-weight: 400; font-style: italic; font-size: 26px; line-height: 1; }
+  .lab .row { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 88%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .lab button { font: inherit; font-size: 16px; line-height: 1; color: var(--ink); background: none; border: 0; padding: 7px 12px 8px; border-radius: 999px; cursor: pointer; }
+  .lab button:hover { background: rgba(61, 85, 136, .1); }
+  .lab button[aria-pressed="true"] { background: var(--ink); color: var(--paper); font-style: italic; }
+  .lab button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .lab label { font-size: 15px; display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 88%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .lab input[type=range] { accent-color: var(--red); width: 120px; }
+  .lab .status { font-size: 15px; font-style: italic; padding: 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 80%, transparent); }
+  .still .lab, .still .editions, .still .tweaks-toggle { display: none; }
+  .loading { position: fixed; inset: 0; display: grid; place-items: center; font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-size: 22px; color: var(--ink); background: var(--paper); transition: opacity .6s; pointer-events: none; }
+</style>
+</head>
+<body>
+<!-- The painted globe on its own: every API call as a button, the editions pill.
+     Stills: ?view=orbit|home|nation0|nation1|nation2|wonder|moon|moonorbit|growth&edition=gouache|riso|raw (&ui=0 hides the chrome) -->
+<div class="loading" id="loading">painting the world&hellip;</div>
+<div class="lab" id="lab" hidden>
+  <h1>The painted globe</h1>
+  <div class="row" id="moves">
+    <button data-do="rise">Rise to orbit</button>
+    <button data-do="orbit">Orbit: the far side</button>
+    <button data-do="dive:home">Dive home</button>
+  </div>
+  <div class="row" id="nations"></div>
+  <div class="row">
+    <button data-do="dive:wonder">The Red arch</button>
+    <button data-do="moon">Fly to the Moon</button>
+    <button data-do="earth">Back to Earth</button>
+  </div>
+  <div class="row">
+    <button data-do="int1" title="flyToMoon, then 1.5 s later dive home: the newest move must win, the old one resolves false">Interrupt: Moon &rarr; home</button>
+    <button data-do="int2" title="dive n1, dive n2, flyToMoon in quick succession">Rapid fire</button>
+  </div>
+  <label>Our town <input type="range" id="home" min="0" max="1" step="0.01" value="0"></label>
+  <label>World colour <input type="range" id="bloom" min="0" max="1" step="0.01" value="0"></label>
+  <label id="nlabel">Nations <input type="range" id="ngrow" min="0" max="1" step="0.01" value="0.75"></label>
+  <div class="row"><button data-do="spin" aria-pressed="true">Idle spin</button></div>
+  <div class="status" id="status">orbit</div>
+</div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script>addEventListener('error', e => { window.__globeError = String(e.message); });</script>
+<script type="module">
+import { createGlobe } from './js/globe/globe.js';
+import { mountPaintUI } from './js/paint/ui.js';
+
+const q = new URLSearchParams(location.search);
+const view = q.get('view') || 'orbit';
+const ed = { riso: 0, gouache: 1, raw: 2 }[q.get('edition') || 'gouache'] ?? 1;
+const still = q.has('view');
+if (q.get('ui') === '0' || still && q.get('ui') !== '1') document.body.classList.add('still');
+
+const t0 = performance.now();
+const globe = createGlobe({ edition: ed, autoSpin: !still });
+window.__globe = globe;
+const buildMs = Math.round(performance.now() - t0);
+mountPaintUI(globe.painter, { closeUp: false, hash: false });
+globe.painter.setMode(ed);
+
+const status = document.getElementById('status');
+const say = t => { status.textContent = t; };
+const nrow = document.getElementById('nations');
+globe.places.nations.forEach((n, i) => { const b = document.createElement('button'); b.dataset.do = 'dive:' + n.id; b.textContent = n.name.replace(/^The /, ''); nrow.append(b); });
+
+async function run(what) {
+  const [cmd, arg] = what.split(':');
+  say(what + '…');
+  if (cmd === 'rise') await globe.rise();
+  else if (cmd === 'orbit') await globe.orbit({ az: Math.PI * 0.9, el: 0.35, ms: 2600 });
+  else if (cmd === 'dive') await globe.dive(arg);
+  else if (cmd === 'moon') await globe.flyToMoon();
+  else if (cmd === 'earth') await globe.flyToEarth();
+  else if (cmd === 'int1') {   // the interrupt test: the old chain must resolve false and never resume
+    const a = globe.flyToMoon(); await new Promise(r => setTimeout(r, 1500));
+    const b = globe.dive('home'); const [ra, rb] = await Promise.all([a, b]);
+    say(`flyToMoon -> ${ra} · dive home -> ${rb} · ${globe.mode} · ${globe.body} · ${globe.lastPlace}`); return;
+  } else if (cmd === 'int2') {
+    const a = globe.dive('n1'); await new Promise(r => setTimeout(r, 350));
+    const b = globe.dive('n2'); await new Promise(r => setTimeout(r, 350));
+    const c = globe.flyToMoon(); const rs = await Promise.all([a, b, c]);
+    say(`n1 ${rs[0]} · n2 ${rs[1]} · moon ${rs[2]} · ${globe.mode} · ${globe.body}`); return;
+  }
+  say(globe.mode + ' · ' + globe.body + (globe.lastPlace ? ' · ' + globe.lastPlace : ''));
+}
+document.getElementById('lab').addEventListener('click', e => {
+  const b = e.target.closest('button[data-do]'); if (!b) return;
+  if (b.dataset.do === 'spin') { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); globe.setAutoSpin(on); return; }
+  run(b.dataset.do);
+});
+document.getElementById('home').addEventListener('input', e => globe.setHomeGrowth(+e.target.value));
+document.getElementById('bloom').addEventListener('input', e => globe.setWorldBloom(+e.target.value));
+if (q.has('bloom')) { globe.setWorldBloom(+q.get('bloom')); document.getElementById('bloom').value = q.get('bloom'); }
+document.getElementById('ngrow').addEventListener('input', e => globe.places.nations.forEach(n => globe.setNationGrowth(n.id, +e.target.value)));
+
+// stills: snap straight to a view
+const nat = globe.places.nations;
+const VIEWS = {
+  orbit: () => globe.snapTo(q.has('el') || q.has('az') || q.has('dist') ? { ...(q.has('el') ? { el: +q.get('el') } : {}), ...(q.has('az') ? { az: +q.get('az') } : {}), ...(q.has('dist') ? { dist: +q.get('dist') } : {}) } : undefined),
+  home: () => globe.snapTo('home'),
+  nation0: () => globe.snapTo(nat[0].id), nation1: () => globe.snapTo(nat[1].id), nation2: () => globe.snapTo(nat[2].id),
+  wonder: () => globe.snapTo('wonder'),
+  moon: () => globe.snapTo('moon'),
+  moonorbit: () => { globe.snapTo('moon'); return globe.rise({ ms: 60 }); },
+  growth: () => { globe.setHomeGrowth(0.85); globe.snapTo('home'); },
+  growthorbit: () => { globe.setHomeGrowth(0.85); globe.snapTo({ el: 0.12, dist: 420 }); },
+  far: () => globe.snapTo({ az: Math.PI * 0.9, el: 0.35 })
+};
+if (q.has('growth')) globe.setHomeGrowth(+q.get('growth'));
+globe.start();
+await (VIEWS[view] || VIEWS.orbit)();
+document.getElementById('lab').hidden = false;
+// __globeReady only once the 'painting the world' overlay is gone (screenshots must never catch it): stills drop
+// it at once, the interactive lab fades it out first
+const ld = document.getElementById('loading');
+const ready = () => { ld.remove(); let frames = 0; (function wait() { frames++; if (frames > 8) { window.__globeReady = true; window.__buildMs = buildMs; } else requestAnimationFrame(wait); })(); };
+if (still) ready(); else { ld.style.opacity = 0; setTimeout(ready, 700); }
+say(view + ' · built in ' + buildMs + ' ms');
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--use-angle=metal'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('pageerror', e => console.log('[pageerror]', e.message));
+p.on('console', m => { if (m.type() === 'error') console.log('[console]', m.text().slice(0, 200)); });
+await p.goto('http://localhost:8870/?intro=none', { waitUntil: 'load' });
+await p.waitForFunction('window.__agora', { timeout: 30000 });
+await new Promise(r => setTimeout(r, 4000));
+await p.evaluate(() => window.__agora.begin && window.__agora.begin()); await new Promise(r => setTimeout(r, 3000)); await p.evaluate(() => window.__agora.skip && window.__agora.skip()); await new Promise(r => setTimeout(r, 3000));
+await p.evaluate(() => window.__agora.handle('build a house in the middle and a factory next to it'));
+await new Promise(r => setTimeout(r, 16000));
+await p.screenshot({ path: 'shots/game/factory-fix.png' });
+console.log(await p.evaluate(() => JSON.stringify(window.__agora.game.state.buildings.map(b => [b.name, b.status, b.x.toFixed(1), b.z.toFixed(1)]))));
+await b.close();

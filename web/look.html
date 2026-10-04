@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gouache lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<link rel="stylesheet" href="css/look-lab.css" data-look-lab="1">
+<style>
+  body { background: #f3ecdc; }
+  canvas.lk-globe { z-index: 5; opacity: 0; pointer-events: none; transition: opacity .6s ease; }
+  canvas.lk-globe.is-on { opacity: 1; pointer-events: auto; }
+  .lk-note { position: fixed; right: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + env(safe-area-inset-bottom, 0px)); z-index: 20;
+    font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-size: 15px; color: var(--ink); padding: 6px 12px; border-radius: 999px;
+    background: color-mix(in srgb, var(--paper) 82%, transparent); }
+  .lk-boot { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #f3ecdc; color: #3d5588;
+    font-family: "Instrument Serif", Georgia, serif; font-style: italic; font-size: 22px; transition: opacity .8s; pointer-events: none; }
+  .lk-boot.is-off { opacity: 0; }
+  body.shot .lk-note { display: none; }
+</style>
+</head>
+<body>
+<!-- The Gouache lab on its own (docs/look-lab.md): the real map (createWorld) with our fliers, and the real globe
+     on demand, tuned live through the same sheet the game opens with G. Saves to web/assets/look.json.
+     ?view=globe starts on the globe · ?closed=1 starts with the sheet closed · ?shot=1 hides the note · ?seed= -->
+<div class="lk-boot" id="boot">the paper is being stretched…</div>
+<div class="lk-note">G hides the sheet · drag to pan · Alt-drag or Q/E to turn · wheel to zoom</div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createKit } from './js/paint/kit.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { createGame } from './js/sim/index.js';
+import * as geography from './js/globe/geography.js';
+import { createWorld, worldCamBase, makeNav, VIEWS } from './js/world/world.js';
+import { bootLook } from './js/lab/look-lab.js';
+
+const Q = new URLSearchParams(location.search);
+if (Q.get('shot')) document.body.classList.add('shot');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.5, 1400);
+const ctx = createContext({ renderer, scene, camera, seed: 11 });
+const kit = createKit(ctx);
+const backdrop = createBackdrop(ctx, { camBase: worldCamBase() });
+const game = createGame({ seed: +(Q.get('seed') || 7), name: 'Agora', offline: true });
+game.setNations(geography.places.nations);
+const world = createWorld(ctx, kit, game, { geography, backdrop, view: VIEWS.leader, input: { left: 'pan' } });
+const nav = makeNav(game, world);
+const folk = createFolk(ctx, backdrop, nav);
+// our species only (ART_DIRECTION §7): flits and floaties
+for (let i = 0; i < 5; i++) folk.make.flit(i);
+for (let i = 0; i < 4; i++) folk.make.floatie(i);
+for (const f of [...folk.flits, ...folk.floaties]) { const p = nav.freePoint(game.state.centre, 10); f.pos.set(p.x, f.pos.y, p.z); f.root.position.copy(f.pos); }
+folk.update(0.016, 0);
+const painter = createPainter(ctx, folk, { framing: world.framing });
+painter.setMode(1);   // Gouache only
+addEventListener('resize', () => painter.resize());
+painter.resize();
+const lift = () => { for (const a of [...folk.flits, ...folk.floaties]) { const gy = world.groundY(a.pos.x, a.pos.z); if (gy) a.root.position.y += gy; } };
+
+// ---------- the globe, on demand, on its own canvas (like the game's stages) ----------
+let globe = null, gcanvas = null, sceneName = 'world';
+const listeners = new Set();
+const setScene = s => { sceneName = s; listeners.forEach(fn => { try { fn(s); } catch (_) {} }); };
+const stages = {
+  get globe() { return globe; }, get scene() { return sceneName; },
+  onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+  async globeReady() {
+    if (globe) return globe;
+    const { createGlobe } = await import('./js/globe/globe.js');
+    gcanvas = document.createElement('canvas'); gcanvas.className = 'lk-globe'; document.body.appendChild(gcanvas);
+    globe = createGlobe({ canvas: gcanvas, water: game.state.water, edition: 1, autoSpin: true });
+    await sleep(60);
+    return globe;
+  },
+  async showGlobe() { await stages.globeReady(); globe.start(); gcanvas.classList.add('is-on'); setScene('globe'); },
+  async homeFromGlobe() { if (gcanvas) gcanvas.classList.remove('is-on'); await sleep(450); if (globe) globe.stop(); setScene('world'); painter.markDirty(); }
+};
+
+const look = await bootLook({ painter, world, stages });
+await world.ready;
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  if (sceneName === 'world') {
+    world.update(dt, t);
+    folk.update(dt, t);
+    lift();
+    painter.frame(dt, t, tt => world.beforeDraw(tt));
+  }
+  requestAnimationFrame(frame);
+}
+painter.markDirty();
+frame();
+document.getElementById('boot').classList.add('is-off');
+setTimeout(() => document.getElementById('boot').remove(), 900);
+look.installKey({ open: Q.get('closed') !== '1' });
+if (Q.get('view') === 'globe') { await stages.showGlobe(); look.syncGlobe(); look.lab && look.lab.setTarget('globe'); }
+
+window.__look = { look, world, painter, folk, game, stages, ctx, get globe() { return globe; } };
+</script>
+</body>
+</html>

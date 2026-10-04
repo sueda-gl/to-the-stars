@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agora voice lab</title>
+<meta name="description" content="Test bench for voice (push-to-talk), the net client and director mode, with fake hooks and a big caption.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root { --paper: #f3ecdc; --ink: #3d5588; --red: #e0503f; --riso-pink: #f15060; --riso-yellow: #ffe800; --riso-blue: #0078bf; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #f3ecdc; --ink: #3d5588; } }
+  :root[data-theme="dark"] { --paper: #f3ecdc; --ink: #3d5588; }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--paper); color: var(--ink);
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; }
+  canvas#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  .caption { position: fixed; left: 50%; bottom: 16vh; transform: translateX(-50%); width: min(1100px, calc(100vw - 32px));
+    text-align: center; font-size: clamp(28px, 4.2vw, 64px); font-style: italic; line-height: 1.15; color: var(--ink);
+    text-shadow: 0 1px 0 rgba(243,236,220,.8); pointer-events: none; min-height: 1.2em; transition: opacity .25s; }
+  .caption.stage { font-style: normal; font-size: clamp(20px, 2.2vw, 30px); opacity: .72; bottom: 11vh; }
+  .caption.spoken::after { content: "▍"; opacity: .5; animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .pill { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+    padding: 4px 6px 4px 4px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 88%, transparent); box-shadow: 0 0 0 1px rgba(61,85,136,.25); }
+  .pill button { font: inherit; font-size: 17px; line-height: 1; color: var(--ink); background: none; border: 0; padding: 9px 14px 10px; border-radius: 999px; cursor: pointer; }
+  .pill button[aria-pressed="true"] { background: var(--red); color: var(--paper); font-style: italic; }
+  .pill canvas { width: 120px; height: 28px; }
+  .pill .hint { font-size: 15px; font-style: italic; opacity: .75; padding-right: 10px; white-space: nowrap; }
+  .typed { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
+  .typed input { font: inherit; font-size: 18px; color: var(--ink); background: color-mix(in srgb, var(--paper) 92%, white); border: 0; border-radius: 999px; padding: 9px 16px 10px; width: min(520px, 70vw);
+    box-shadow: 0 0 0 1px rgba(61,85,136,.25); outline: none; }
+  .typed input:focus-visible { box-shadow: 0 0 0 2px var(--red); }
+  .chips { position: fixed; left: 50%; bottom: calc(126px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 90vw; }
+  .chips button { font: inherit; font-size: 15px; font-style: italic; color: var(--ink); background: color-mix(in srgb, var(--paper) 80%, transparent); border: 0; border-radius: 999px; padding: 6px 12px 7px; cursor: pointer; box-shadow: 0 0 0 1px rgba(61,85,136,.18); }
+  .chips button:hover { background: var(--ink); color: var(--paper); }
+  .panel { position: fixed; right: 18px; top: 18px; width: 320px; max-height: calc(100vh - 36px); display: flex; flex-direction: column; gap: 8px; border-radius: 14px; padding: 12px 14px;
+    background: color-mix(in srgb, var(--paper) 94%, transparent); box-shadow: 0 0 0 1px rgba(61,85,136,.22), 0 10px 30px rgba(40,20,10,.12); font-size: 15px; }
+  .panel h1 { font-size: 22px; font-weight: 400; margin: 0; font-style: italic; }
+  .panel .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .panel button, .panel select { font: inherit; font-size: 15px; color: var(--ink); background: none; border: 0; border-radius: 999px; padding: 5px 11px 6px; cursor: pointer; box-shadow: 0 0 0 1px rgba(61,85,136,.25); }
+  .panel button:hover { background: var(--ink); color: var(--paper); }
+  .panel .log { flex: 1; min-height: 120px; max-height: 44vh; overflow: auto; font-size: 13px; line-height: 1.35; font-family: ui-monospace, Menlo, monospace; opacity: .85; white-space: pre-wrap; word-break: break-word; }
+  .panel .log b { color: var(--red); font-weight: 600; }
+  .panel .status { font-style: italic; opacity: .8; }
+  .panel[hidden] { display: none; }
+  .title { position: fixed; inset: 0; display: grid; place-content: center; text-align: center; background: color-mix(in srgb, var(--paper) 82%, transparent); opacity: 0; pointer-events: none; transition: opacity .4s; }
+  .title.on { opacity: 1; }
+  .title h2 { font-size: clamp(64px, 11vw, 180px); font-weight: 400; margin: 0; letter-spacing: .04em; color: var(--ink); }
+  .title p { font-size: clamp(22px, 2.6vw, 40px); font-style: italic; margin: .2em 0 0; color: var(--red); }
+  .letter { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-1.5deg) scale(.96); width: min(560px, 86vw); padding: 28px 34px 26px; background: #fbf6ea; color: #2f3f66;
+    box-shadow: 0 1px 0 rgba(61,85,136,.25), 0 24px 50px rgba(40,20,10,.18); opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; }
+  .letter.on { opacity: 1; transform: translate(-50%, -50%) rotate(-1.5deg) scale(1); }
+  .letter .from { font-size: 15px; font-style: italic; opacity: .7; margin-bottom: 6px; }
+  .letter h3 { font-size: 30px; font-weight: 400; margin: 0 0 10px; }
+  .letter p { font-size: 20px; line-height: 1.35; margin: 0; }
+  .letter .seal { position: absolute; right: 22px; top: -14px; width: 46px; height: 46px; border-radius: 50%; background: var(--red); box-shadow: inset 0 0 0 3px rgba(243,236,220,.6); }
+  .cursor { position: fixed; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--red); background: color-mix(in srgb, var(--red) 25%, transparent);
+    transform: translate(-50%, -50%); pointer-events: none; opacity: 0; transition: left .9s cubic-bezier(.3,.8,.3,1), top .9s cubic-bezier(.3,.8,.3,1), opacity .3s; }
+  .cursor.on { opacity: 1; }
+  .there { position: fixed; width: 14px; height: 14px; border-radius: 50%; background: var(--riso-blue); transform: translate(-50%, -50%); pointer-events: none; opacity: .8; }
+  .offline { position: fixed; left: 18px; top: 18px; font-size: 15px; font-style: italic; opacity: .7; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="offline" id="offline"></div>
+<div class="title" id="title"><h2 id="titleText">AGORA</h2><p id="titleSub">a civilisation you speak into being</p></div>
+<div class="caption" id="caption"></div>
+<div class="letter" id="letter"><div class="seal"></div><div class="from" id="letterFrom"></div><h3 id="letterSubject"></h3><p id="letterBody"></p></div>
+<div class="cursor" id="cursor"></div>
+<div class="chips" id="chips"></div>
+<form class="typed" id="typed"><input id="typedInput" placeholder="…or type a command and press Enter" autocomplete="off"></form>
+<div class="pill"><button id="mic" aria-pressed="false">● hold Space to speak</button><canvas id="wave" width="240" height="56"></canvas><span class="hint" id="hint"></span></div>
+<aside class="panel" id="panel">
+  <h1>voice lab</h1>
+  <div class="row">
+    <button id="play">Play director</button><button id="skip">Skip</button><button id="stop">Stop</button>
+    <select id="lang"><option value="en-US">en-US</option><option value="tr-TR">tr-TR</option></select>
+  </div>
+  <div class="row"><button id="fake">Fake utterance</button><button id="ping">Ping /api/health</button><button id="codegen">Codegen (SSE)</button><button id="clear">Clear</button></div>
+  <div class="status" id="status">…</div>
+  <div class="log" id="log"></div>
+</aside>
+
+<script type="module">
+import { createVoice, webSpeechFactory, langFromQuery } from './js/voice/voice.js';
+import { createFakeRecognizer } from './js/voice/fake.js';
+import { createApi } from './js/net/api.js';
+import { createDirector, DEFAULT_BEATS, TIMING, wordByWord } from './js/director.js';
+
+const $ = (id) => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+const speed = Number(q.get('speed') || 1);
+const useFake = q.get('fake') === '1' || !webSpeechFactory();
+const api = createApi();
+
+// ---------- log ----------
+const logEl = $('log');
+function log(kind, ...rest) {
+  const line = document.createElement('div');
+  line.innerHTML = `<b>${kind}</b> ${rest.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')}`;
+  logEl.prepend(line);
+  while (logEl.children.length > 120) logEl.lastChild.remove();
+}
+window.__lablog = [];
+const status = (t) => { $('status').textContent = t; };
+
+// ---------- fake scene: a painted plot that gains shapes when things are built ----------
+const scene = $('scene'), sctx = scene.getContext('2d');
+const things = [];   // { x, y, kind, born }
+let camX = 0, camTarget = 0, t0 = performance.now(), folk = [];
+function resize() { scene.width = innerWidth * devicePixelRatio; scene.height = innerHeight * devicePixelRatio; }
+addEventListener('resize', resize); resize();
+function draw(now) {
+  const W = scene.width, H = scene.height, t = (now - t0) / 1000, dpr = devicePixelRatio;
+  camX += (camTarget - camX) * 0.04;
+  sctx.setTransform(1, 0, 0, 1, 0, 0);
+  sctx.fillStyle = '#f3ecdc'; sctx.fillRect(0, 0, W, H);
+  // sky grade
+  const sky = sctx.createLinearGradient(0, 0, 0, H * .55); sky.addColorStop(0, '#f6d9b3'); sky.addColorStop(1, '#f3ecdc');
+  sctx.fillStyle = sky; sctx.fillRect(0, 0, W, H * .55);
+  // sun
+  sctx.fillStyle = '#f0a06a'; sctx.beginPath(); sctx.arc(W * .72 - camX * .1, H * .22 + Math.sin(t * .3) * 6 * dpr, 70 * dpr, 0, Math.PI * 2); sctx.fill();
+  // ridges + neighbours
+  for (let r = 0; r < 3; r++) {
+    sctx.fillStyle = ['#d9c7bf', '#c9b6b9', '#b7a7b4'][r];
+    sctx.beginPath(); sctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 20 * dpr) sctx.lineTo(x, H * (.42 + r * .04) + Math.sin((x + camX * (r + 1)) / (320 * dpr) + r) * 28 * dpr + Math.sin((x - camX) / (90 * dpr)) * 8 * dpr);
+    sctx.lineTo(W, H); sctx.closePath(); sctx.fill();
+  }
+  // sea band + plot
+  sctx.fillStyle = '#8fb3c9'; sctx.fillRect(0, H * .52, W, H * .1);
+  sctx.fillStyle = '#efe6d2'; sctx.beginPath(); sctx.ellipse(W * .5 - camX, H * .78, W * .42, H * .24, 0, 0, Math.PI * 2); sctx.fill();
+  // lake
+  sctx.fillStyle = '#a9c6d8'; sctx.beginPath(); sctx.ellipse(W * .3 - camX, H * .64, W * .08, H * .045, 0, 0, Math.PI * 2); sctx.fill();
+  // things built
+  for (const th of things) {
+    const age = Math.min(1, (now - th.born) / 1800), x = th.x * dpr - camX, y = th.y * dpr, s = 42 * dpr * age;
+    sctx.strokeStyle = '#3d5588'; sctx.lineWidth = 2 * dpr; sctx.fillStyle = age < .5 ? 'rgba(0,0,0,0)' : ['#e0503f', '#f15060', '#ffe800', '#0078bf'][th.i % 4];
+    sctx.beginPath();
+    if (th.kind === 'round') sctx.arc(x, y - s * .5, s * .5, 0, Math.PI * 2);
+    else if (th.kind === 'tall') sctx.rect(x - s * .2, y - s * 1.9, s * .4, s * 1.9);
+    else { sctx.moveTo(x - s * .5, y); sctx.lineTo(x - s * .5, y - s * .6); sctx.lineTo(x, y - s); sctx.lineTo(x + s * .5, y - s * .6); sctx.lineTo(x + s * .5, y); sctx.closePath(); }
+    sctx.fill(); sctx.stroke();
+    // colour bloom around it
+    if (age > .5) { sctx.fillStyle = `rgba(190, 212, 150, ${(age - .5) * .5})`; sctx.beginPath(); sctx.ellipse(x, y + 4 * dpr, s * 1.6, s * .5, 0, 0, Math.PI * 2); sctx.fill(); }
+  }
+  // folk: little blobs that wander toward the newest thing
+  for (const f of folk) {
+    const goal = things.at(-1); if (goal) { f.x += (goal.x - 40 + f.ox - f.x) * .02; f.y += (goal.y + 10 - f.y) * .02; }
+    const bob = Math.abs(Math.sin(t * 4 + f.ox)) * 4;
+    sctx.fillStyle = f.c; sctx.beginPath(); sctx.ellipse(f.x * dpr - camX, (f.y - bob) * dpr, 10 * dpr, 12 * dpr, 0, 0, Math.PI * 2); sctx.fill();
+    sctx.strokeStyle = '#3d5588'; sctx.lineWidth = 1.5 * dpr; sctx.stroke();
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+// ---------- caption / title / letter / cursor ----------
+const cap = $('caption');
+function caption(text, { spoken = false } = {}) {
+  cap.textContent = text || ''; cap.classList.toggle('spoken', spoken && Boolean(text)); cap.classList.toggle('stage', !spoken && Boolean(text));
+}
+function title({ text, sub, ms }) {
+  $('titleText').textContent = text; $('titleSub').textContent = sub || '';
+  $('title').classList.add('on'); setTimeout(() => $('title').classList.remove('on'), Math.max(400, ms - 300));
+}
+function showLetter({ from, subject, body }, ms = 4200 * speed) {
+  $('letterFrom').textContent = from; $('letterSubject').textContent = subject; $('letterBody').textContent = body;
+  $('letter').classList.add('on'); setTimeout(() => $('letter').classList.remove('on'), ms);
+}
+const cursor = $('cursor');
+const SPOTS = { windmill: { x: .66, y: .72 }, cliff: { x: .84, y: .58 }, lake: { x: .3, y: .64 }, middle: { x: .5, y: .76 } };
+let lastPointer = null;
+function movePointer(p) {
+  const s = typeof p === 'string' ? (SPOTS[p] || SPOTS.middle) : p;
+  const x = s.x <= 1 ? s.x * innerWidth : s.x, y = s.y <= 1 ? s.y * innerHeight : s.y;
+  cursor.style.left = `${x}px`; cursor.style.top = `${y}px`; cursor.classList.add('on');
+  lastPointer = { x, y };
+  return new Promise(r => setTimeout(() => { voice.injectPointer(x, y); r(); }, 950 * Math.min(1, speed)));
+}
+function markThere(p) { if (!p) return; const d = document.createElement('div'); d.className = 'there'; d.style.left = `${p.x}px`; d.style.top = `${p.y}px`; document.body.appendChild(d); setTimeout(() => d.remove(), 2500); }
+
+// ---------- fake world: what hooks.command does here ----------
+let busy = null, idleResolvers = [], eventWaiters = {};
+const names = ['Olla', 'Pim', 'Tove', 'Brio'];
+function emit(name, payload) { log('event', name, payload || ''); (eventWaiters[name] || []).splice(0).forEach(r => r(payload)); }
+function setBusy(ms) { busy = setTimeout(() => { busy = null; idleResolvers.splice(0).forEach(r => r()); }, ms); }
+async function command(text, meta = {}) {
+  log('command', text, meta.pointerAtThere ? `there=${Math.round(meta.pointerAtThere.x)},${Math.round(meta.pointerAtThere.y)}` : '');
+  window.__lablog.push({ text, meta });
+  const t = text.toLowerCase();
+  const where = meta.pointerAtThere || (/\bthere\b|cliff|lake/.test(t) ? lastPointer : null) || { x: innerWidth * .5, y: innerHeight * .76 };
+  if (/build|house|windmill|lighthouse|duck|statue|tower|well|bakery|\ba\b/.test(t) && !/meeting|minister|neighbour|bread|baking/.test(t)) {
+    const kind = /lighthouse|tower|windmill/.test(t) ? 'tall' : /duck|well|fountain/.test(t) ? 'round' : 'house';
+    const unknown = /lighthouse|duck|statue|dragon/.test(t);
+    if (unknown) { log('ministry', 'we have never built that; plans are being drawn'); await sleep(1500 * speed); }
+    things.push({ x: where.x, y: where.y, kind, born: performance.now(), i: things.length });
+    setBusy(2600 * speed);
+  } else if (/baking|who/.test(t)) {
+    setBusy(900 * speed);
+    setTimeout(() => { emit('letter:new', { from: 'Olla, loaf' }); pendingLetter = { from: 'Olla — a loaf', subject: 'I bake, if you must know', body: 'My sourdough once made a scoot weep. Give me an oven and I will feed the lot of them.' }; }, 900 * speed);
+  } else if (/minister/.test(t)) { log('minister', 'seal changed'); setBusy(500 * speed); }
+  else if (/bread|basket|send|gift/.test(t)) { hooks.gift({ what: 'bread' }); }
+  else if (/neighbour/.test(t)) { hooks.visitNeighbour(); }
+  else if (/meeting/.test(t)) { hooks.meeting(); }
+  else { setBusy(600 * speed); return { actions: [{ type: 'noop', why: 'the lab world only knows the demo beats' }] }; }
+  return { actions: [{ type: 'handled' }] };   // the director treats a noop-only result as "run the beat's fallback"
+}
+let pendingLetter = null;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const hooks = {
+  say: async (text, { speed: sp, signal, wordByWord: wbw }) => { await wbw(text, { wps: TIMING.wordsPerSecond, speed: sp, signal, onText: t => caption(t, { spoken: true }) }); },
+  command: (text) => command(text, { pointerAtThere: lastPointer }),
+  caption: (t, o) => caption(t, o),
+  title,
+  camera: (c) => { log('camera', c.to, `${c.ms}ms`); if (c.to === 'descent') { camTarget = 0; camX = -1400; } },
+  pointer: (p) => movePointer(p),
+  idle: () => busy ? new Promise(r => idleResolvers.push(r)) : Promise.resolve(),
+  waitEvent: (name, timeout) => new Promise(r => { (eventWaiters[name] ||= []).push(r); setTimeout(() => r(null), timeout); }),
+  pickAgentName: () => 'Olla',
+  // Local stand-ins for send_gift / visit_neighbour / call_meeting (the beats' fallbacks until the server has them).
+  gift: ({ what } = {}) => { log('gift', `a courier walks a basket of ${what || 'bread'} to the horizon`); setBusy(800 * speed); },
+  visitNeighbour: () => { log('camera', 'fly to the neighbours'); camTarget = 900; setTimeout(() => camTarget = 0, 6500 * speed); setBusy(800 * speed); },
+  meeting: () => { log('meeting', 'folk gather'); setBusy(800 * speed); },
+  openLetter: () => showLetter(pendingLetter || { from: 'Vessa of Harrowmere', subject: 'A greeting across the water', body: 'Your lights are new on our horizon. We send a jar of honey and a question: friends, or rivals?' }),
+  spawn: () => { folk = names.map((n, i) => ({ x: innerWidth * (.35 + i * .1), y: innerHeight * .8, ox: i * 30, c: ['#f0c27a', '#e8a68e', '#bcd1e6', '#d6c9ef'][i] })); log('spawn', names.join(', ')); },
+  envoy: () => { log('envoy', 'a flit crosses the water'); pendingLetter = null; setTimeout(() => emit('letter:new', { from: 'neighbour' }), 1200 * speed); },
+  onBeat: (b, i) => { status(`beat ${i + 1}/${DEFAULT_BEATS.length}: ${b.id}`); log('beat', b.id); },
+  onDone: () => { status('director done'); log('director', 'done'); },
+  onError: (e, b) => log('director error', b.id, e.message),
+};
+const director = createDirector({ hooks, timing: { speed } });
+
+// ---------- voice ----------
+const wave = $('wave'), wctx = wave.getContext('2d');
+let level = 0;
+function drawWave() {
+  wctx.clearRect(0, 0, wave.width, wave.height);
+  wctx.strokeStyle = voice.listening ? '#e0503f' : 'rgba(61,85,136,.35)'; wctx.lineWidth = 2;
+  wctx.beginPath();
+  const now = performance.now() / 1000;
+  for (let x = 0; x < wave.width; x += 3) { const y = wave.height / 2 + Math.sin(x / 9 + now * 9) * level * wave.height * .45 * Math.sin(x / wave.width * Math.PI); x === 0 ? wctx.moveTo(x, y) : wctx.lineTo(x, y); }
+  wctx.stroke();
+  level *= .9;
+  requestAnimationFrame(drawWave);
+}
+requestAnimationFrame(drawWave);
+
+let fakeRec = null;
+const voice = createVoice({
+  lang: q.get('lang') ? langFromQuery(location.search) : $('lang').value,
+  recognizerFactory: useFake ? () => (fakeRec = createFakeRecognizer()) : webSpeechFactory(), engine: useFake ? 'fake' : 'webspeech',
+  onStart: () => { $('mic').setAttribute('aria-pressed', 'true'); $('mic').textContent = '● listening…'; caption('', { spoken: true }); },
+  onPartial: (t, m) => { caption(t, { spoken: true }); if (m.deictic) $('hint').textContent = `"${m.deictic}" → cursor captured`; },
+  onFinal: (t, m) => { $('mic').setAttribute('aria-pressed', 'false'); $('mic').textContent = '● hold Space to speak'; caption(t, { spoken: false }); log('final', t, { there: m.pointerAtThere, waitedOut: m.waitedOut, ms: m.endedAt - m.startedAt }); markThere(m.pointerAtThere); command(t, m); },
+  onError: (e) => { $('mic').setAttribute('aria-pressed', 'false'); $('mic').textContent = '● hold Space to speak'; $('hint').textContent = e.message; log('voice error', e.code, e.message); if (e.code === 'unsupported') $('typedInput').focus(); },
+  onLevel: (v) => { level = Math.max(level, v); },
+  onState: (s) => status(`voice: ${s}`),
+});
+// The mic pill is press-and-hold. Only a press that began on the pill ends on pointerup, so a stray click elsewhere
+// never cuts a Space hold short (game UI: do the same).
+let micHeld = false;
+$('mic').addEventListener('pointerdown', (e) => { e.preventDefault(); micHeld = true; voice.start(); });
+addEventListener('pointerup', () => { if (micHeld) { micHeld = false; voice.stop(); } });
+addEventListener('pointercancel', () => { if (micHeld) { micHeld = false; voice.stop(); } });
+$('lang').value = voice.lang; $('lang').addEventListener('change', () => voice.setLang($('lang').value));
+$('hint').textContent = voice.supported ? (useFake ? 'fake recogniser' : 'Chrome Web Speech') : voice.unsupportedMessage;
+if (!voice.supported) $('typedInput').placeholder = 'Voice needs Chrome. Type a command and press Enter';
+
+// Fake utterance: drives the injected recogniser like Chrome would (interim, interim, final).
+$('fake').addEventListener('click', async () => {
+  if (!useFake) { log('fake', 'reload with ?fake=1 to use the fake recogniser'); return; }
+  const phrase = ['and a windmill there', "let's build a house in the middle", 'put a giant rubber duck there, in the lake'][Math.floor(Math.random() * 3)];
+  await movePointer({ x: Math.random() * .6 + .2, y: Math.random() * .3 + .55 });
+  voice.start();
+  const words = phrase.split(' ');
+  for (let i = 1; i <= words.length; i++) { await sleep(180); fakeRec.say(words.slice(0, i).join(' '), i === words.length); }
+  voice.stop();
+});
+
+// typed fallback + chips
+$('typed').addEventListener('submit', (e) => { e.preventDefault(); const t = $('typedInput').value.trim(); if (!t) return; $('typedInput').value = ''; caption(t); log('typed', t); command(t, { pointerAtThere: lastPointer }); $('typedInput').blur(); });
+for (const t of ["Let's build a house in the middle", 'a windmill there', 'who here is good at baking?', 'build a lighthouse on the cliff', 'put a giant rubber duck there', 'call a meeting']) {
+  const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', () => { caption(t); log('chip', t); command(t, { pointerAtThere: lastPointer }); }); $('chips').appendChild(b);
+}
+
+// net
+$('ping').addEventListener('click', async () => { try { const h = await api.health(); log('health', h); $('offline').textContent = h.mock ? 'offline mind' : ''; } catch (e) { log('health error', e.code, e.message); } });
+$('codegen').addEventListener('click', () => {
+  const h = api.codegen({ request: 'a lighthouse on the cliff', kindHint: null, snapshot: {} }, { onStatus: s => log('codegen status', s.stage), onDone: a => log('codegen done', a.id, `${(a.code || '').length} chars`), onError: e => log('codegen error', e.code, e.message) });
+  log('codegen', 'started; aborting in 25 s if silent'); setTimeout(() => h.abort(), 25000);
+});
+api.health().then(h => { log('health', h); $('offline').textContent = h.mock ? 'offline mind' : ''; }).catch(e => log('health', 'no server:', e.message));
+
+// director controls
+$('play').addEventListener('click', () => director.play());
+$('skip').addEventListener('click', () => director.skip());
+$('stop').addEventListener('click', () => director.stop());
+$('clear').addEventListener('click', () => { logEl.textContent = ''; });
+window.__lab = { voice, api, director, hooks, command, things };
+if (q.get('autoplay') === '1') { if (q.get('panel') === '0') $('panel').hidden = true; setTimeout(() => director.play(), 400); }
+if (q.get('panel') === '0') $('panel').hidden = true;
+</script>
+</body>
+</html>

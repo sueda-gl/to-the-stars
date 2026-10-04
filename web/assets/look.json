@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "savedAt": "2026-10-04T10:23:51.091Z",
+  "world": {
+    "planet": 1,
+    "style_fish": 0
+  },
+  "trailer": {
+    "t6_brush": 2,
+    "t6_wobble": 3,
+    "t6_saturation": 1.06,
+    "t6_warmth": 0,
+    "t6_tooth": 0.1,
+    "t6_pooling": 0,
+    "t6_lines": true,
+    "t6_lineWeight": 0.5,
+    "t6_lineStrength": 0
+  }
+}

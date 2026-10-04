@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planet lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root { --paper: #f3ecdc; --ink: #3d5588; --red: #e0503f; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; }
+  /* her canvas rule (reference/the-tower-planet-clean.html) */
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .lab { position: fixed; left: max(14px, 2.4vmin); top: max(14px, 2.4vmin); display: flex; flex-direction: column; gap: 6px; max-width: 250px;
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; color: var(--ink); z-index: 5; }
+  .lab h1 { font-weight: 400; font-style: italic; font-size: 22px; margin: 0 0 2px 4px; color: var(--paper); text-shadow: 0 0 8px rgba(5,6,13,.6); }
+  .lab .row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .lab button { font: inherit; font-size: 16px; line-height: 1; color: var(--ink); cursor: pointer; border: 0; border-radius: 999px; padding: 7px 12px 8px;
+    background: color-mix(in srgb, var(--paper) 92%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .lab button[aria-pressed="true"] { background: var(--ink); color: var(--paper); font-style: italic; }
+  .lab button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .lab .note { font-size: 15px; font-style: italic; margin: 2px 4px; min-height: 1.2em; color: var(--paper); text-shadow: 0 0 6px rgba(5,6,13,.8); }
+  .tag { position: fixed; z-index: 4; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap;
+    font: italic 400 17px/1 "Instrument Serif", Georgia, serif; color: var(--ink);
+    text-shadow: 0 0 1px rgba(247,241,227,.95), 0 0 6px rgba(247,241,227,.9), 0 0 14px rgba(247,241,227,.7); }
+  .tag.home { font-size: 20px; }
+  .tag[hidden] { display: none; }
+  body.shot .lab, body.shot .tag { display: none; }
+</style>
+</head>
+<body>
+<div class="lab" id="lab">
+  <h1>The Tower Planet · our home</h1>
+  <div class="row">
+    <button data-v="orbit">Orbit</button>
+    <button data-v="descend">Descend to home</button>
+  </div>
+  <div class="row">
+    <button data-v="leader">Leader view</button>
+    <button data-v="towards">Toward the tower</button>
+    <button data-v="landing">Close landing</button>
+    <button data-v="close">Up close</button>
+  </div>
+  <div class="row">
+    <button data-v="n1">Riviera</button>
+    <button data-v="n2">Loaf Rep.</button>
+    <button data-v="n3">Harbour</button>
+    <button data-v="wonder">Tower</button>
+  </div>
+  <div class="row">
+    <button data-v="walk">Walk 40 m test</button>
+    <button data-v="labels" aria-pressed="true">Labels</button>
+  </div>
+  <div class="note" id="note">click the ground: a pencil ✕ · right-drag pans · wheel zooms · Q / E turn</div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script type="module">
+// Planet lab: Sueda's Tower Planet (web/js/planet, her look verbatim) with our home on it: the geography (home.js),
+// the surface adapter (adapter.js), 12 of our folk walking and flying on the plot through the adapter, painted by the
+// Red arch folk pass on top of her post (folkpass.js), a few prefabs stood on the slope, a pencil ✕ where you click.
+//   ?view=orbit|descend|leader|landing|close|n1|n2|n3|wonder   ?nolabels   ?shot (hides the chrome)
+import { createPlanet } from './js/planet/planet.js';
+import { createPlanetGeography } from './js/planet/home.js';
+import { createSurfaceAdapter } from './js/planet/adapter.js';
+import { createFolkPass } from './js/planet/folkpass.js';
+import { createContext } from './js/paint/context.js';
+import { createKit } from './js/paint/kit.js';
+import { createFolk, FACE_LAYER } from './js/paint/folk.js';
+import { createAgentNav } from './js/agents/nav.js';
+import { createFlierMotion } from './js/agents/fliers.js';
+import { createBuildApi } from './js/buildings/api.js';
+import { createLibrary } from './js/buildings/library.js';
+
+const Q = new URLSearchParams(location.search);
+if (Q.has('shot')) document.body.classList.add('shot');
+const note = t => { document.getElementById('note').textContent = t; };
+
+/* ---------------- her planet, our home on it ---------------- */
+const planet = createPlanet({ autoStart: false, input: false });
+const geo = createPlanetGeography(planet);
+const adapter = createSurfaceAdapter(planet, { geography: geo });
+const ctx = createContext({ renderer: planet.renderer, scene: planet.scene, camera: adapter.flatCamera, seed: 11 });
+const pass = createFolkPass(planet, { adapter, ctx });
+const kit = createKit(ctx);
+
+/* ---------------- 12 of ours: 6 flits + 6 floaties, walking and flying on the plot ---------------- */
+const nav = createAgentNav({ state: { plot: geo.plot } }, { margin: 1.5 });
+nav.spots = [[0, 9], [-3, 7], [3, 7], [0, 4]];
+const folk = createFolk(ctx, pass.backdrop, nav);
+pass.attach(folk);
+const recs = [];
+const grounded = () => recs.filter(r => fm.down(r)).map(r => r.a);
+const fm = createFlierMotion(ctx, folk, { groundY: adapter.groundY, isWater: geo.isWater, grounded });
+const START = [[-3, 6], [2, 7.5], [5, 4], [-6, 3], [0, 11], [4, 10.5], [-4, 10], [7, 8], [-1, 2.5], [2, 13], [-7, 7.5], [8, 3]];
+for (let i = 0; i < 12; i++) {
+  const species = i % 2 ? 'floatie' : 'flit';
+  const a = folk.make[species](i >> 1);
+  a.controlled = true; a.route = [];
+  const rec = { id: i, species, a };
+  fm.placeGround(rec, START[i][0], START[i][1]);
+  a.heading = Math.random() * 6.28;
+  recs.push(rec);
+}
+const rand = (a, b) => a + (b - a) * Math.random();
+function wander(rec) {
+  for (let k = 0; k < 20; k++) {
+    const x = rand(-24, 24), z = rand(-20, 24);
+    if (geo.isWater(x, z) || nav.obstacles.some(o => Math.hypot(x - o[0], z - o[1]) < o[2] + 1)) continue;
+    fm.go(rec, x, z, { fly: 'auto', walkMax: 12 });
+    rec.next = performance.now() / 1000 + rand(4, 12);
+    return;
+  }
+}
+
+/* ---------------- a few prefabs, stood on the slope ---------------- */
+const api = createBuildApi(ctx, kit, { keyDir: pass.backdrop.KEY_DIR });
+const lib = createLibrary(ctx, kit, { api });
+const PREFABS = [['house', 9, 15, 0.3], ['house', 15, 9, -0.4, 1], ['windmill', 19, -8, 0.2], ['well', 1, 0, 0], ['bakery', -5, -10, 0.15], ['granary', -21, -4, -0.25]];
+const placed = [];
+lib.load(['house', 'windmill', 'well', 'bakery', 'granary']).then(() => {
+  for (const [id, x, z, rot, variant = 0] of PREFABS) {
+    if (!lib.has(id)) continue;
+    const obj = lib.create(id, { rot: 0, variant });
+    const s = (obj.userData.agora && obj.userData.agora.size) || { w: 4, d: 4 };
+    adapter.place(obj, x, z, { rot, footprint: { w: s.w, d: s.d } });
+    nav.obstacles.push([x, z, Math.max(s.w, s.d) * 0.6]);
+    placed.push({ id, x, z, rot, obj, size: s });
+  }
+  window.__lab.prefabsReady = true;
+});
+
+/* ---------------- markers: home, the three nations, the tower ---------------- */
+const tags = [];
+function marker(x, z, colour, h = 7, label = '', cls = '') {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * h / 7, 0.12 * h / 7, h, 6), new THREE.MeshBasicMaterial({ color: 0x2a2f4a }));
+  pole.position.y = h / 2; g.add(pole);
+  const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(h * 0.36, -h * 0.11); sh.lineTo(0, -h * 0.22);
+  const flag = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: new THREE.Color(colour), side: THREE.DoubleSide }));
+  flag.position.y = h; g.add(flag);
+  adapter.place(g, x, z, { rot: 0.6 });
+  if (label) {
+    const el = document.createElement('div'); el.className = 'tag ' + cls; el.textContent = label; document.body.appendChild(el);
+    tags.push({ el, x, z, y: adapter.groundY(x, z) + h + 1.5 });
+  }
+  return g;
+}
+marker(0, 2, '#e0503f', 4, 'Our land', 'home');
+for (const n of geo.nations) marker(n.x, n.z, n.colours.wall, 14, `${n.name} · ${n.kind}`);
+{ const w = geo.wonder; const el = document.createElement('div'); el.className = 'tag'; el.textContent = 'The Tower'; document.body.appendChild(el);
+  tags.push({ el, x: w.x, z: w.z, y: w.top + 10 }); }
+let labels = !Q.has('nolabels');
+function placeTags() {
+  for (const t of tags) {
+    if (!labels || planet.altitude > 900) { t.el.hidden = true; continue; }
+    const s = adapter.toScreen(t.x, t.y, t.z);
+    const w = adapter.toWorld(t.x, t.y, t.z), toCam = planet.camera.position.clone().sub(w), up = w.clone().normalize();
+    const behindPlanet = toCam.dot(up) < -0.05 * toCam.length();
+    t.el.hidden = s.behind || behindPlanet || s.x < -50 || s.y < -50 || s.x > innerWidth + 50 || s.y > innerHeight + 50;
+    t.el.style.left = s.x + 'px'; t.el.style.top = s.y + 'px';
+  }
+}
+
+/* ---------------- the pick test: a pencil ✕ on the drawn ground ---------------- */
+const pencil = new THREE.MeshBasicMaterial({ color: 0x3d5588, side: THREE.DoubleSide });
+let cross = null, lastPick = null;
+function pencilCross(x, z) {
+  if (cross) { cross.removeFromParent(); cross.geometry.dispose(); }
+  const dist = planet.camera.position.distanceTo(adapter.toWorld(x, adapter.groundY(x, z), z));
+  const arm = Math.max(0.5, Math.min(3.2, dist * 0.016)), wd = arm * 0.16, pos = [], idx = [];
+  for (const ang of [Math.PI / 4, -Math.PI / 4]) {
+    const c = Math.cos(ang), s = Math.sin(ang), base = pos.length / 3, N = 8;
+    for (let i = 0; i <= N; i++) {
+      const u = -arm + 2 * arm * i / N, wob = Math.sin(i * 1.7 + ang) * wd * 0.15;
+      for (const side of [-1, 1]) {
+        const px = x + c * u - s * (side * wd / 2 + wob), pz = z + s * u + c * (side * wd / 2 + wob);
+        const v = adapter.toWorld(px, adapter.surfaceY(px, pz) + 0.06, pz); pos.push(v.x, v.y, v.z);
+      }
+      if (i < N) { const k = base + i * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
+    }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  cross = new THREE.Mesh(g, pencil);
+  cross.layers.set(FACE_LAYER);           // drawn crisp in the folk pass, over the paint, under nearer terrain
+  adapter.markWorld(cross); planet.surface.add(cross);
+}
+
+/* ---------------- cameras ---------------- */
+const home = geo.places.home;
+let view = { x: home.x, z: home.z, ...home.view };
+function local(v, snap = false) { view = { ...view, ...v }; adapter.cameraLocal({ ...view, snap }); }
+const VIEWS = {
+  orbit() { planet.orbit(); planet.orbitSpin(true); },
+  descend() { view = { x: home.x, z: home.z, ...home.view }; return adapter.descendTo({ ...view, ms: 6000 }); },
+  leader() { local({ x: home.x, z: home.z, ...home.view }); },
+  towards() { local({ x: home.x, z: home.z, ...home.towerView }); },
+  landing() { local({ ...home.landing }); },
+  close() { local({ x: 1, z: 6, dist: 9, pitch: 0.22, yaw: home.view.yaw, fov: 50 }); },
+  wonder() { const w = geo.wonder; view = { x: w.x, z: w.z, ...w.view }; return adapter.descendTo({ ...view, yaw: Math.atan2(-w.x, -w.z) + Math.PI, ms: 4500 }); }
+};
+for (const n of geo.nations) VIEWS[n.id] = () => { view = { x: n.x, z: n.z, ...n.view }; return adapter.descendTo({ ...view, ms: 4500 }); };
+
+/* input: in orbit a drag spins and the wheel zooms (her controls); down here left click marks, right-drag pans,
+   the wheel zooms, Q / E turn */
+const cv = planet.renderer.domElement;
+let drag = null;
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, b: e.button, moved: 0 }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+  const st = planet.state();
+  if (st.mode === 'orbit') { planet.setOrbit({ az: st.orbit.az - dx * 0.005, el: Math.max(-1.25, Math.min(1.35, st.orbit.el + dy * 0.004)) }); planet.orbitSpin(false); return; }
+  if (st.mode === 'local' && drag.b === 2) {
+    const k = view.dist / innerHeight * 1.2, c = Math.cos(view.yaw), s = Math.sin(view.yaw);
+    local({ x: view.x - (c * dx - s * dy * 1.6) * k, z: view.z - (-s * dx - c * dy * 1.6) * k }, true);
+  }
+});
+cv.addEventListener('pointerup', e => {
+  const d = drag; drag = null; if (!d || d.moved > 5 || d.b !== 0) return;
+  const p = adapter.pick(e.clientX, e.clientY); if (!p) { note('the sky'); return; }
+  lastPick = p; pencilCross(p.x, p.z);
+  note(`✕ at (${p.x.toFixed(1)}, ${p.z.toFixed(1)}) · ground ${adapter.groundY(p.x, p.z).toFixed(2)} m${p.water ? ' · ' + p.water : ''}${p.inPlot ? ' · our plot' : ''}`);
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const st = planet.state();
+  if (st.mode === 'orbit') { planet.setOrbit({ dist: Math.max(170 * 1.45, Math.min(170 * 8, st.orbit.dist * Math.exp(e.deltaY * 0.0012))) }); return; }
+  if (st.mode === 'local') local({ dist: Math.max(6, Math.min(260, view.dist * Math.exp(e.deltaY * 0.0012))) }, true);
+}, { passive: false });
+addEventListener('keydown', e => {
+  if (planet.state().mode !== 'local') return;
+  if (e.key === 'q' || e.key === 'Q') local({ yaw: view.yaw - 0.25 });
+  if (e.key === 'e' || e.key === 'E') local({ yaw: view.yaw + 0.25 });
+});
+document.querySelectorAll('.lab button[data-v]').forEach(b => b.addEventListener('click', () => {
+  const v = b.dataset.v;
+  if (v === 'labels') { labels = !labels; b.setAttribute('aria-pressed', labels); return; }
+  if (v === 'walk') { walkTest().then(r => note(`40 m walk: feet ${r.feetCm.toFixed(1)} cm worst · tilt ${r.tiltDeg.toFixed(2)}° · ${r.ok ? 'ok' : 'FAIL'}`)); return; }
+  VIEWS[v]();
+}));
+
+/* ---------------- the loop: sim (flat) -> her frame (the folk pass maps them for the render) ---------------- */
+let T = 0, last = null;
+function simulate(dt, t) {
+  folk.update(dt, t);
+  const now = performance.now() / 1000;
+  for (const rec of recs) {
+    if (!rec.test && fm.arrived(rec) && (rec.next == null || now > rec.next)) wander(rec);
+    fm.step(rec, dt, t);
+  }
+  // the relief under them (what the agents bridge does with world.groundY): root, legs, shadow
+  for (const rec of recs) {
+    const a = rec.a, gy = adapter.groundY(a.pos.x, a.pos.z);
+    a.root.position.y += gy;
+    for (const l of a.legs || []) { l.leg.position.y += gy; l.foot.position.y += gy; }
+    const air = Math.max(0, a.pos.y - (fm.down(rec) ? a.pos.y : 0));
+    a.blob.position.set(a.pos.x, 0.015 + gy, a.pos.z);
+    a.blob.scale.setScalar(a.sc * 0.72 / (1 + (fm.down(rec) ? 0 : air) * 0.25));
+  }
+  lib.update && lib.update(t);
+}
+function frame(now) {
+  const dt = last == null ? 0 : Math.min(0.05, (now - last) / 1000); last = now; T += dt;
+  simulate(dt, T);
+  planet.frame(now);
+  placeTags();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- the 40 m walk test: a flit walks the plot in flat space; feet vs the DRAWN ground ---------------- */
+const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+function footClearance(foot) {   // the lowest point of a foot above the drawn ground under it (world, after mapping)
+  const p = foot.geometry.attributes.position; let lo = Infinity;
+  foot.updateMatrixWorld(true);
+  for (let i = 0; i < p.count; i += 3) {
+    _v.fromBufferAttribute(p, i).applyMatrix4(foot.matrixWorld);
+    lo = Math.min(lo, _v.length() - 170 - adapter.drawn.altAlong(_v));
+  }
+  return lo;
+}
+function measure(rec) {
+  adapter.mapFolk(folk);
+  const a = rec.a, feet = a.legs.map(l => footClearance(l.foot)), planted = Math.min(...feet);
+  a.root.updateMatrixWorld(true);
+  const up = _v.set(0, 1, 0).applyQuaternion(a.root.getWorldQuaternion(new THREE.Quaternion())), radial = _w.copy(a.root.getWorldPosition(new THREE.Vector3())).normalize();
+  const tilt = Math.acos(Math.min(1, up.dot(radial))) * 180 / Math.PI;
+  adapter.restore();
+  return { planted, tilt };
+}
+async function walkTest({ steps = 60 * 40, dt = 1 / 60, frames = true } = {}) {
+  const rec = recs[0]; rec.test = true;
+  const from = { x: -18, z: -16 }, to = { x: 18, z: 4 };   // 41 m across the plot, through the middle
+  fm.placeGround(rec, from.x, from.z);
+  fm.go(rec, to.x, to.z, { fly: false, walkMax: 1e9 });
+  let worstFeet = 0, worstTilt = 0, n = 0, walked = 0, lastP = { x: from.x, z: from.z }, flatWorst = 0;
+  for (let i = 0; i < steps && !fm.arrived(rec); i++) {
+    T += dt; simulate(dt, T);
+    walked += Math.hypot(rec.a.pos.x - lastP.x, rec.a.pos.z - lastP.z); lastP = { x: rec.a.pos.x, z: rec.a.pos.z };
+    if (i % 3 === 0) {
+      const m = measure(rec); n++;
+      worstFeet = Math.max(worstFeet, Math.abs(m.planted)); worstTilt = Math.max(worstTilt, m.tilt);
+      // the same in flat space (the leg rig itself): the lowest foot vs the ground the bridge lifts by
+      const gy = adapter.groundY(rec.a.pos.x, rec.a.pos.z);
+      const fl = Math.min(...rec.a.legs.map(l => { l.foot.updateMatrixWorld(true); const p = l.foot.geometry.attributes.position; let lo = Infinity; for (let k = 0; k < p.count; k += 3) { _v.fromBufferAttribute(p, k).applyMatrix4(l.foot.matrixWorld); lo = Math.min(lo, _v.y - adapter.groundY(_v.x, _v.z)); } return lo; }));
+      flatWorst = Math.max(flatWorst, Math.abs(fl)); void gy;
+    }
+  }
+  rec.test = false;
+  const r = { walked: +walked.toFixed(1), samples: n, feetCm: worstFeet * 100, flatFeetCm: flatWorst * 100, tiltDeg: worstTilt, ok: worstFeet < 0.05 && worstTilt < 1 && walked > 38 };
+  window.__lab.walk = r; console.log('[planet-lab] walk test', r);
+  return r;
+}
+
+/* ---------------- start ---------------- */
+window.__lab = { planet, geo, adapter, pass, folk, fm, recs, lib, placed, VIEWS, local, walkTest, measure, simulate,
+  get view() { return view; }, get pick() { return lastPick; }, pencilCross, placeTags,
+  step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) { T += dt; simulate(dt, T); } },
+  setLabels(v) { labels = v; placeTags(); } };
+const v0 = Q.get('view') || 'orbit';
+if (VIEWS[v0]) { if (v0 === 'orbit') VIEWS.orbit(); else if (v0 === 'descend') VIEWS.descend(); else { VIEWS[v0](); } }
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

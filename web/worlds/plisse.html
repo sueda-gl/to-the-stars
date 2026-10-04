@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plissé — the lantern planet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #121834;
+    --chip: rgba(32, 36, 44, 0.62);
+    --chip-hover: rgba(32, 36, 44, 0.8);
+    --ink: #f3f1e8;
+    --ink-soft: rgba(243, 241, 232, 0.72);
+    --focus: #f0b53c;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --chip: rgba(20, 22, 28, 0.7); }
+  }
+  :root[data-theme="dark"] { --chip: rgba(20, 22, 28, 0.7); }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--sky); }
+  body { font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; color: var(--ink); }
+  canvas#c {
+    position: fixed; inset: 0; width: 100%; height: 100%; display: block;
+    opacity: 0; transition: opacity 1.4s ease; touch-action: none;
+  }
+  canvas#c.ready { opacity: 1; }
+  .hint, .bar {
+    position: fixed;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  .bar {
+    right: calc(18px + env(safe-area-inset-right, 0px));
+    display: flex; gap: 8px;
+  }
+  .hint, .toggle {
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    background: var(--chip);
+    border-radius: 999px;
+    font-size: 15px; letter-spacing: 0.01em;
+  }
+  .hint {
+    left: calc(18px + env(safe-area-inset-left, 0px));
+    padding: 10px 16px; color: var(--ink-soft);
+    transition: opacity 0.8s ease;
+    pointer-events: none;
+  }
+  .hint.gone { opacity: 0; }
+  @media (max-width: 560px) { .hint { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); font-size: 14px; } }
+  .toggle {
+    border: 0; color: var(--ink); cursor: pointer;
+    padding: 10px 18px; font: inherit; font-size: 15px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toggle:hover { background: var(--chip-hover); }
+  .toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #f6e7b8; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); transition: background 0.6s; }
+  #toggle[aria-pressed="true"] .dot { background: #f0a24a; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px 6px 4px 7px; background: #c9cdb8; transform: rotate(-8deg); transition: background 0.4s; }
+  #paint[aria-pressed="true"] .swatch { background: #b8432a; }
+  .err { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding: 24px; color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) {
+    canvas#c, .hint, .dot { transition: none; }
+  }
+  .title {
+    position: fixed; top: calc(18px + env(safe-area-inset-top, 0px)); left: calc(18px + env(safe-area-inset-left, 0px));
+    padding: 12px 18px; border-radius: 14px; background: var(--chip); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    max-width: min(360px, calc(100vw - 36px));
+  }
+  .title h1 { margin: 0; font-family: "Young Serif", Georgia, serif; font-weight: 400; font-size: 24px; letter-spacing: 0.01em; }
+  .title p { margin: 4px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="3D planet: a pleated paper-lantern world, locked facing its star, with a ring of permanent dusk where small lantern creatures migrate"></canvas>
+<div class="title"><h1>Plissé</h1><p>A pleated lantern world, locked facing its star. The shadelings live on the dusk ring.</p></div>
+<div class="hint" id="hint">Drag to orbit, scroll to zoom</div>
+<div class="bar">
+  <button class="toggle" id="paint" aria-pressed="true"><span class="swatch"></span><span id="paintLabel">Raw render</span></button>
+</div>
+<div class="err" id="err">This scene needs WebGL, which this browser has turned off.</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+  'use strict';
+  if (!window.THREE) { document.getElementById('err').style.display = 'grid'; return; }
+  THREE.ColorManagement.legacyMode = false;
+  const hint = document.getElementById('hint');
+
+  /* ---------- utilities ---------- */
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const rand = mulberry32(11);
+  const rr = (a, b) => a + (b - a) * rand();
+  function h3(x, y, z) { let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1440662683)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+  function vnoise(x, y, z) {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const xf = x - xi, yf = y - yi, zf = z - zi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+    const a = h3(xi, yi, zi), b = h3(xi + 1, yi, zi), c = h3(xi, yi + 1, zi), d = h3(xi + 1, yi + 1, zi);
+    const e = h3(xi, yi, zi + 1), f = h3(xi + 1, yi, zi + 1), g = h3(xi, yi + 1, zi + 1), k = h3(xi + 1, yi + 1, zi + 1);
+    const x1 = a + (b - a) * u, x2 = c + (d - c) * u, x3 = e + (f - e) * u, x4 = g + (k - g) * u;
+    const y1 = x1 + (x2 - x1) * v, y2 = x3 + (x4 - x3) * v;
+    return y1 + (y2 - y1) * w;
+  }
+  function fbm(x, y, z, o = 4) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < o; i++) { s += a * vnoise(x * f + i * 17.3, y * f + i * 5.1, z * f); n += a; a *= 0.5; f *= 2.03; } return s / n; }
+  const smooth = (a, b, x) => { let t = (x - a) / (b - a); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
+  const C = hex => new THREE.Color(hex);
+
+  /* ---------- renderer / scene ---------- */
+  const canvas = document.getElementById('c');
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); }
+  catch (e) { document.getElementById('err').style.display = 'grid'; return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  function canvasTex(size, draw, srgb) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const ctx = cv.getContext('2d'); draw(ctx, size);
+    const t = new THREE.CanvasTexture(cv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    if (srgb) t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  const scene = new THREE.Scene();
+  scene.background = C('#121834');
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 3000);
+  camera.position.set(7, 8, 41);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.06; controls.enablePan = false;
+  controls.minDistance = 14; controls.maxDistance = 75; controls.rotateSpeed = 0.5;
+  controls.autoRotate = true; controls.autoRotateSpeed = 0.18;
+  controls.addEventListener('start', () => { controls.autoRotate = false; hint.classList.add('gone'); });
+
+  /* ---------- the star ----------
+     Plissé is tidally locked: one face always to its star. Its lantern axis points straight
+     at the star, so the day side is one end of the lantern, the night side the other, and
+     the widest band of the lantern — the "waist" — is a permanent ring of dusk. */
+  const SUN = new THREE.Vector3(-1, 0.16, 0.05).normalize();
+  const sun = new THREE.DirectionalLight(C('#ffe2b0'), 1.25);
+  sun.position.copy(SUN).multiplyScalar(60); scene.add(sun);
+  scene.add(new THREE.HemisphereLight(C('#4a5694'), C('#140f1c'), 0.32));
+  {
+    const disc = new THREE.Mesh(new THREE.SphereGeometry(16, 32, 16), new THREE.MeshBasicMaterial({ color: C('#fff0c6') }));
+    disc.position.copy(SUN).multiplyScalar(420); scene.add(disc);
+    const haloTex = canvasTex(256, (ctx, s) => {
+      const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      g.addColorStop(0, 'rgba(255,226,170,0.9)'); g.addColorStop(0.25, 'rgba(255,190,110,0.35)'); g.addColorStop(1, 'rgba(255,160,90,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+    }, true);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    halo.position.copy(disc.position); halo.scale.setScalar(260); scene.add(halo);
+  }
+  // painted stars
+  for (const [count, size, col] of [[900, 2.2, '#efe6cc'], [220, 3.6, '#f6e7b8'], [60, 5, '#ffffff']]) {
+    const p = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) { const v = new THREE.Vector3(rr(-1, 1), rr(-1, 1), rr(-1, 1)).normalize().multiplyScalar(900); p.set([v.x, v.y, v.z], i * 3); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: C(col), size, sizeAttenuation: false })));
+  }
+
+  /* ---------- the planet: a folded paper lantern the size of a world ---------- */
+  const R = 10, N_PLEATS = 46;
+  const A = SUN.clone();
+  const B = new THREE.Vector3().crossVectors(A, new THREE.Vector3(0, 1, 0)).normalize();
+  const Cc = new THREE.Vector3().crossVectors(A, B).normalize();
+  const tri = x => 1 - Math.abs(2 * (x - Math.floor(x)) - 1);
+  function surf(n) {
+    const lat = Math.asin(Math.max(-1, Math.min(1, n.dot(A))));
+    const lon = Math.atan2(n.dot(Cc), n.dot(B));
+    const t = tri(lon / (Math.PI * 2) * N_PLEATS);
+    const fold = t * t * (3 - 2 * t);
+    const band = Math.pow(Math.cos(lat), 0.6);
+    const big = fbm(n.x * 1.6 + 3, n.y * 1.6, n.z * 1.6, 3);
+    let r = 1 + 0.032 * fold * band * (0.55 + 0.9 * big) + 0.014 * (fbm(n.x * 4, n.y * 4, n.z * 4, 3) - 0.5);
+    // the wire ribs of the lantern
+    const rib = l => Math.exp(-Math.pow((lat - l) / 0.022, 2));
+    r += 0.011 * (rib(0.95) + rib(-0.95));
+    // flat end caps
+    r += 0.018 * smooth(1.2, 1.24, Math.abs(lat));
+    return { r: R * r, lat, lon, fold, big };
+  }
+  {
+    const geo = new THREE.SphereGeometry(1, 368, 200);
+    geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), A));
+    const pos = geo.attributes.position, n = new THREE.Vector3();
+    const col = new Float32Array(pos.count * 3), glow = new Float32Array(pos.count);
+    const cream = C('#d9ceb0'), creamWarm = C('#dcbf84'), olive = C('#6f7f2f'), oliveD = C('#4e5e22'), mustard = C('#e2b13c'), pool = C('#2b4844'),
+      navy = C('#273058'), navyL = C('#36407a'), red = C('#b8432a'), c = new THREE.Color(), d = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      n.fromBufferAttribute(pos, i).normalize();
+      const s = surf(n);
+      pos.setXYZ(i, n.x * s.r, n.y * s.r, n.z * s.r);
+      const day = smooth(0.12, 0.42, s.lat), night = smooth(-0.1, -0.42, s.lat), dusk = Math.max(0, 1 - day - night);
+      const m = fbm(n.x * 7, n.y * 7, n.z * 7, 3);
+      c.copy(cream).lerp(creamWarm, smooth(0.9, 1.4, s.lat) * 0.8 + (m - 0.5) * 0.3).multiplyScalar(day);
+      d.copy(oliveD).lerp(olive, m).lerp(mustard, smooth(0.62, 0.72, fbm(n.x * 11 + 4, n.y * 11, n.z * 11, 2)) * 0.85);
+      if (s.fold < 0.14 && s.big > 0.52) d.lerp(pool, 0.85);
+      c.add(d.multiplyScalar(dusk));
+      d.copy(navy).lerp(navyL, s.fold * 0.6); c.add(d.multiplyScalar(night));
+      const ribs = Math.exp(-Math.pow((s.lat - 0.95) / 0.03, 2)) + Math.exp(-Math.pow((s.lat + 0.95) / 0.03, 2)) + smooth(1.2, 1.23, Math.abs(s.lat));
+      c.lerp(red, Math.min(1, ribs));
+      col.set([c.r, c.g, c.b], i * 3);
+      // light leaking through the paper on the night side: strongest in the folds and at the far cap
+      let g = night * Math.pow(1 - s.fold, 4) * (0.2 + 0.8 * smooth(0.35, 0.7, s.big)) * 0.4;
+      g += smooth(-1.18, -1.32, s.lat) * 1.1;
+      g += dusk * smooth(0.82, 0.92, vnoise(n.x * 18, n.y * 18, n.z * 18)) * 0.8 * smooth(0.06, -0.08, s.lat);
+      glow[i] = g;
+    }
+    // close the seam
+    geo.computeVertexNormals();
+    const nr = geo.attributes.normal, W = 369;
+    for (let row = 0; row <= 200; row++) {
+      const a = row * W, b = a + 368;
+      for (let k = 0; k < 3; k++) { const v = (nr.array[a * 3 + k] + nr.array[b * 3 + k]) / 2; nr.array[a * 3 + k] = nr.array[b * 3 + k] = v; }
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('glow', new THREE.BufferAttribute(glow, 1));
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 });
+    var glowUniform = { value: 0.8 };
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.glowAmt = glowUniform;
+      sh.vertexShader = 'attribute float glow;\nvarying float vGlow;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vGlow = glow;');
+      sh.fragmentShader = 'uniform float glowAmt;\nvarying float vGlow;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(1.0, 0.5, 0.18) * vGlow * glowAmt;');
+    };
+    scene.add(new THREE.Mesh(geo, mat));
+  }
+  // thin warm atmosphere, brightest along the dusk ring
+  const atmo = new THREE.Mesh(new THREE.SphereGeometry(R * 1.07, 96, 64), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { sunDir: { value: SUN }, camPos: { value: camera.position } },
+    vertexShader: 'varying vec3 vN; varying vec3 vW; void main(){ vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: `uniform vec3 sunDir; uniform vec3 camPos; varying vec3 vN; varying vec3 vW;
+      void main(){
+        float f = 1.0 - max(dot(normalize(camPos - vW), vN), 0.0); f = pow(f, 2.6);
+        float s = dot(vN, sunDir);
+        vec3 col = mix(vec3(0.18, 0.22, 0.5), vec3(0.95, 0.85, 0.66), smoothstep(-0.25, 0.4, s));
+        col = mix(col, vec3(1.0, 0.55, 0.28), exp(-pow(s * 4.0, 2.0)) * 0.9);
+        gl_FragColor = vec4(col * f * (0.12 + 0.9 * smoothstep(-0.6, 0.15, s)), 1.0);
+      }`
+  }));
+  scene.add(atmo);
+
+  /* ---------- moons: a pleated red one and a bead ---------- */
+  const moons = [];
+  {
+    const g = new THREE.SphereGeometry(1, 96, 48), p = g.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const l = Math.atan2(v.z, v.x); v.multiplyScalar(1 + 0.06 * tri(l / (Math.PI * 2) * 18) * Math.sqrt(Math.max(0, 1 - v.y * v.y))); p.setXYZ(i, v.x, v.y, v.z); }
+    g.computeVertexNormals();
+    const m1 = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: C('#b8432a'), roughness: 0.85 })); m1.scale.setScalar(0.95); scene.add(m1);
+    const m2 = new THREE.Mesh(new THREE.SphereGeometry(0.6, 32, 20), new THREE.MeshStandardMaterial({ color: C('#e2b13c'), roughness: 0.5, emissive: C('#ffc266'), emissiveIntensity: 0.15 })); scene.add(m2);
+    moons.push({ m: m1, r: 19, speed: 0.045, inc: 0.32, ph: 0.8, spin: 0.2 }, { m: m2, r: 15.5, speed: 0.09, inc: -0.5, ph: 2.6, spin: 0 });
+  }
+
+  /* ---------- shadelings, at home ---------- */
+  const SH_N = 190;
+  const shBodyGeo = (() => {
+    const g = new THREE.CylinderGeometry(0.052, 0.115, 0.17, 48, 3);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), f = Math.abs(Math.cos(Math.atan2(z, x) * 14)); p.setX(i, x * (1 + 0.08 * f)); p.setZ(i, z * (1 + 0.08 * f)); }
+    g.computeVertexNormals(); g.translate(0, 0.085, 0); return g;
+  })();
+  const shCapGeo = new THREE.SphereGeometry(0.056, 16, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+  const shLegGeo = new THREE.CylinderGeometry(0.006, 0.011, 0.2, 5); shLegGeo.translate(0, -0.1, 0);
+  const shAntGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0.19, 0), new THREE.Vector3(0, 0.27, 0.01), new THREE.Vector3(0, 0.32, 0.05), new THREE.Vector3(0, 0.33, 0.09)]), 10, 0.004, 4);
+  const shBeadGeo = new THREE.SphereGeometry(0.02, 10, 8);
+  const palette = ['#e2b13c', '#b8432a', '#efe6cc', '#8a8f3a', '#3e4a78', '#e08a3a'].map(C);
+  const dark = new THREE.MeshStandardMaterial({ color: C('#3a2418'), roughness: 0.6 });
+  const beadMat = new THREE.MeshStandardMaterial({ color: C('#ffd68a'), emissive: C('#ffc266'), emissiveIntensity: 2.2, roughness: 0.4 });
+  const parts = {
+    body: new THREE.InstancedMesh(shBodyGeo, new THREE.MeshStandardMaterial({ roughness: 0.85 }), SH_N),
+    cap: new THREE.InstancedMesh(shCapGeo, new THREE.MeshStandardMaterial({ color: C('#f3ecd8'), roughness: 0.6 }), SH_N),
+    ant: new THREE.InstancedMesh(shAntGeo, dark, SH_N),
+    bead: new THREE.InstancedMesh(shBeadGeo, beadMat, SH_N),
+    legL: new THREE.InstancedMesh(shLegGeo, dark, SH_N),
+    legR: new THREE.InstancedMesh(shLegGeo, dark, SH_N)
+  };
+  Object.values(parts).forEach(m => { m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; scene.add(m); });
+  const walkers = [];
+  for (let i = 0; i < SH_N; i++) {
+    walkers.push({ lat: (rand() + rand() - 1) * 0.14 + 0.01, lon: rr(-Math.PI, Math.PI), w: rr(0.006, 0.013), ph: rr(0, 6), wob: rr(0.5, 1.2), k: rr(0.75, 1.1) });
+    parts.body.setColorAt(i, palette[i % palette.length]);
+  }
+  // elder lanterns: tall, slow, the landmarks of the dusk ring
+  const elders = [];
+  for (let i = 0; i < 7; i++) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(shBodyGeo, new THREE.MeshStandardMaterial({ color: palette[(i * 2) % 6], roughness: 0.85 })); body.scale.y = 2.4; body.position.y = 0.2; g.add(body);
+    const cap = new THREE.Mesh(shCapGeo, parts.cap.material); cap.position.y = 0.2 + 0.17 * 2.4; g.add(cap);
+    const ant = new THREE.Mesh(shAntGeo, dark); ant.position.y = 0.2 + 0.17 * 2.4 - 0.19; g.add(ant);
+    const bead = new THREE.Mesh(shBeadGeo, beadMat); bead.position.set(0, 0.2 + 0.17 * 2.4 - 0.19 + 0.33, 0.09); bead.scale.setScalar(1.4); g.add(bead);
+    for (const sx of [-1, 1]) { const l = new THREE.Mesh(shLegGeo, dark); l.position.set(0.035 * sx, 0.2, 0); g.add(l); }
+    g.scale.setScalar(rr(2.2, 2.9));
+    scene.add(g);
+    elders.push({ g, lat: rr(-0.06, 0.08), lon: -Math.PI + i * (Math.PI * 2 / 7) + rr(-0.2, 0.2), ph: rr(0, 6) });
+  }
+
+  const eul = new THREE.Euler(), mBody = new THREE.Matrix4();
+  const vN = new THREE.Vector3(), vF = new THREE.Vector3(), vX = new THREE.Vector3(), mB = new THREE.Matrix4(), mP = new THREE.Matrix4(), mT = new THREE.Matrix4(), qB = new THREE.Quaternion(), vS = new THREE.Vector3(), vP = new THREE.Vector3();
+  function placeOnSurface(lat, lon, out) {
+    vN.copy(A).multiplyScalar(Math.sin(lat)).addScaledVector(B, Math.cos(lat) * Math.cos(lon)).addScaledVector(Cc, Math.cos(lat) * Math.sin(lon)).normalize();
+    vF.copy(B).multiplyScalar(-Math.sin(lon)).addScaledVector(Cc, Math.cos(lon)).normalize();
+    vX.crossVectors(vN, vF).normalize();
+    out.makeBasis(vX, vN, vF);
+    out.setPosition(vN.x * surf(vN).r, vN.y * surf(vN).r, vN.z * surf(vN).r);
+    return out;
+  }
+  function setPart(mesh, i, base, x, y, z, rx, rz, sx = 1, sy = 1, sz = 1) {
+    mT.makeRotationFromEuler(eul.set(rx, 0, rz)); mT.scale(vS.set(sx, sy, sz)); mT.setPosition(x, y, z);
+    mP.multiplyMatrices(base, mT); mesh.setMatrixAt(i, mP);
+  }
+  function updateWalkers(dt, time) {
+    for (let i = 0; i < SH_N; i++) {
+      const w = walkers[i];
+      w.lon += w.w * dt;
+      const lat = w.lat + Math.sin(time * 0.15 * w.wob + w.ph) * 0.012;
+      placeOnSurface(lat, w.lon, mB);
+      mB.scale(vS.set(w.k, w.k, w.k));
+      const st = time * 5.5 * w.wob + w.ph, swing = Math.sin(st) * 0.5, bob = Math.abs(Math.cos(st)) * 0.018;
+      mT.makeRotationFromEuler(eul.set(0.1, 0, Math.sin(st) * 0.08)); mT.setPosition(0, 0.2 + bob, 0); mBody.multiplyMatrices(mB, mT);
+      parts.body.setMatrixAt(i, mBody);
+      setPart(parts.cap, i, mBody, 0, 0.17, 0, 0, 0);
+      setPart(parts.ant, i, mBody, 0, 0, 0, 0, 0);
+      setPart(parts.bead, i, mBody, 0, 0.33, 0.09, 0, 0);
+      setPart(parts.legL, i, mB, -0.035, 0.2 + bob, 0, swing, 0);
+      setPart(parts.legR, i, mB, 0.035, 0.2 + bob, 0, -swing, 0);
+    }
+    Object.values(parts).forEach(m => { m.instanceMatrix.needsUpdate = true; });
+    glowUniform.value = 0.8 + Math.sin(time * 0.55) * 0.12;
+    for (const e of elders) {
+      e.lon += 0.0015 * dt;
+      placeOnSurface(e.lat, e.lon, mB);
+      mB.decompose(vP, qB, vS); e.g.position.copy(vP); e.g.quaternion.copy(qB);
+      e.g.rotateZ(Math.sin(time * 0.4 + e.ph) * 0.03);
+    }
+  }
+
+  /* ---------- gouache post pass ----------
+     scene -> HDR target -> sRGB -> structure tensor (edge flow)
+     -> anisotropic Kuwahara (flat, directional paint dabs)
+     -> composite: wobbly edges, pigment pooling at edges, brush streaks, dry-brush, paper tooth */
+  let gouache = true;
+  const isGL2 = renderer.capabilities.isWebGL2;
+  const rtScene = new THREE.WebGLRenderTarget(1, 1, { type: isGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: isGL2 ? 4 : 0 });
+  const rtLDR = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+  const rtTensor = new THREE.WebGLRenderTarget(1, 1, { type: isGL2 ? THREE.HalfFloatType : THREE.UnsignedByteType, depthBuffer: false });
+  const rtPaint = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+  const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const fsGeo = new THREE.PlaneGeometry(2, 2);
+  const VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+  const NOISE = `
+    float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+    float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y); }
+    float fbm2(vec2 p){ float s = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ s += a * vn(p); p = p * 2.03 + 7.1; a *= 0.5; } return s; }
+    float luma(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }`;
+  function pass(frag, uniforms) {
+    const mat = new THREE.ShaderMaterial({ uniforms, vertexShader: VS, fragmentShader: frag, depthTest: false, depthWrite: false });
+    const sc = new THREE.Scene(); sc.add(new THREE.Mesh(fsGeo, mat));
+    return { u: mat.uniforms, run(target) { renderer.setRenderTarget(target); renderer.render(sc, fsCam); } };
+  }
+
+  const ldrPass = pass(`
+    uniform sampler2D tSrc; varying vec2 vUv;
+    vec3 toSRGB(vec3 c){ c = max(c, 0.0); return mix(c * 12.92, pow(c, vec3(1.0 / 2.4)) * 1.055 - 0.055, step(0.0031308, c)); }
+    void main(){ gl_FragColor = vec4(toSRGB(texture2D(tSrc, vUv).rgb), 1.0); }`,
+    { tSrc: { value: rtScene.texture } });
+
+  const tensorPass = pass(`
+    uniform sampler2D tSrc; uniform vec2 px; varying vec2 vUv;
+    vec3 at(float x, float y){ return texture2D(tSrc, vUv + vec2(x, y) * px).rgb; }
+    void main(){
+      vec3 gx = (-at(-1.,-1.) - 2.0*at(-1.,0.) - at(-1.,1.) + at(1.,-1.) + 2.0*at(1.,0.) + at(1.,1.)) * 0.25;
+      vec3 gy = (-at(-1.,-1.) - 2.0*at(0.,-1.) - at(1.,-1.) + at(-1.,1.) + 2.0*at(0.,1.) + at(1.,1.)) * 0.25;
+      gl_FragColor = vec4(dot(gx, gx), dot(gx, gy), dot(gy, gy), 1.0);
+    }`,
+    { tSrc: { value: rtLDR.texture }, px: { value: new THREE.Vector2() } });
+
+  const paintPass = pass(`
+    uniform sampler2D tSrc, tTensor; uniform vec2 px, tpx; uniform float radius;
+    varying vec2 vUv;
+    const int MAXR = 12;
+    vec3 tensorAt(vec2 uv){
+      vec2 o = tpx * 1.5;
+      vec3 t = texture2D(tTensor, uv).xyz * 0.25;
+      t += (texture2D(tTensor, uv + vec2(o.x, 0.)).xyz + texture2D(tTensor, uv - vec2(o.x, 0.)).xyz
+          + texture2D(tTensor, uv + vec2(0., o.y)).xyz + texture2D(tTensor, uv - vec2(0., o.y)).xyz) * 0.125;
+      t += (texture2D(tTensor, uv + o).xyz + texture2D(tTensor, uv - o).xyz
+          + texture2D(tTensor, uv + vec2(o.x, -o.y)).xyz + texture2D(tTensor, uv + vec2(-o.x, o.y)).xyz) * 0.0625;
+      return t;
+    }
+    void main(){
+      vec3 T = tensorAt(vUv);
+      float E = T.x, F = T.y, G = T.z;
+      float D = sqrt((E - G) * (E - G) + 4.0 * F * F);
+      float l1 = 0.5 * (E + G + D), l2 = 0.5 * (E + G - D);
+      vec2 t = vec2(l1 - E, -F);
+      t = length(t) > 1e-7 ? normalize(t) : vec2(0.0, 1.0);
+      float phi = atan(t.y, t.x);
+      float A = (l1 + l2 > 1e-7) ? (l1 - l2) / (l1 + l2) : 0.0;
+      float a = radius * clamp(1.0 + A, 0.1, 2.0);
+      float b = radius * clamp(1.0 / (1.0 + A), 0.1, 2.0);
+      float cp = cos(phi), sp = sin(phi);
+      mat2 SR = mat2(0.5 / a, 0.0, 0.0, 0.5 / b) * mat2(cp, -sp, sp, cp);
+      int mx = int(sqrt(a * a * cp * cp + b * b * sp * sp));
+      int my = int(sqrt(a * a * sp * sp + b * b * cp * cp));
+      vec4 m[8]; vec3 s[8];
+      for (int k = 0; k < 8; k++) { m[k] = vec4(0.0); s[k] = vec3(0.0); }
+      float zeta = 1.0 / radius * 2.0;
+      float zc = 0.58;
+      float eta = (zeta + cos(zc)) / (sin(zc) * sin(zc));
+      for (int j = -MAXR; j <= MAXR; j++) {
+        if (j < -my || j > my) continue;
+        for (int i = -MAXR; i <= MAXR; i++) {
+          if (i < -mx || i > mx) continue;
+          vec2 v = SR * vec2(float(i), float(j));
+          if (dot(v, v) > 0.25) continue;
+          vec3 c = texture2D(tSrc, vUv + vec2(float(i), float(j)) * px).rgb;
+          vec3 cc = c * c;
+          float w[8]; float sum = 0.0; float z, vxx, vyy;
+          vxx = zeta - eta * v.x * v.x; vyy = zeta - eta * v.y * v.y;
+          z = max(0.0,  v.y + vxx); w[0] = z * z; sum += w[0];
+          z = max(0.0, -v.x + vyy); w[2] = z * z; sum += w[2];
+          z = max(0.0, -v.y + vxx); w[4] = z * z; sum += w[4];
+          z = max(0.0,  v.x + vyy); w[6] = z * z; sum += w[6];
+          vec2 r = 0.70710678 * vec2(v.x - v.y, v.x + v.y);
+          vxx = zeta - eta * r.x * r.x; vyy = zeta - eta * r.y * r.y;
+          z = max(0.0,  r.y + vxx); w[1] = z * z; sum += w[1];
+          z = max(0.0, -r.x + vyy); w[3] = z * z; sum += w[3];
+          z = max(0.0, -r.y + vxx); w[5] = z * z; sum += w[5];
+          z = max(0.0,  r.x + vyy); w[7] = z * z; sum += w[7];
+          float g = exp(-3.125 * dot(v, v)) / max(sum, 1e-6);
+          for (int k = 0; k < 8; k++) { float wk = w[k] * g; m[k] += vec4(c * wk, wk); s[k] += cc * wk; }
+        }
+      }
+      vec4 o = vec4(0.0);
+      for (int k = 0; k < 8; k++) {
+        if (m[k].w <= 0.0) continue;
+        vec3 mu = m[k].rgb / m[k].w;
+        vec3 sg = abs(s[k] / m[k].w - mu * mu);
+        float sig2 = sg.r + sg.g + sg.b;
+        float wk = 1.0 / (1.0 + pow(8.0 * 1000.0 * sig2, 4.0));
+        o += vec4(mu * wk, wk);
+      }
+      vec3 col = o.w > 1e-6 ? o.rgb / o.w : texture2D(tSrc, vUv).rgb;
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+    { tSrc: { value: rtLDR.texture }, tTensor: { value: rtTensor.texture }, px: { value: new THREE.Vector2() }, tpx: { value: new THREE.Vector2() }, radius: { value: 5 } });
+
+  const compPass = pass(`
+    uniform sampler2D tPaint, tTensor; uniform vec2 res, ppx; uniform float scale; uniform vec3 paper;
+    varying vec2 vUv;
+    ${NOISE}
+    float tooth(vec2 p){ return fbm2(p * 0.22) * 0.8 + vn(p * 0.9) * 0.2; }
+    void main(){
+      vec2 p = vUv * res / scale;                       // css-pixel space, so texture scale ignores dpr
+      vec2 wob = vec2(fbm2(p * 0.04), fbm2(p * 0.04 + 31.7)) - 0.5;
+      vec2 uv = vUv + wob * ppx * 3.5;                  // hand-cut, wavering shape edges
+      vec3 c = texture2D(tPaint, uv).rgb;
+
+      vec2 e = ppx * 1.2;
+      float lx = luma(texture2D(tPaint, uv + vec2(e.x, 0.)).rgb) - luma(texture2D(tPaint, uv - vec2(e.x, 0.)).rgb);
+      float ly = luma(texture2D(tPaint, uv + vec2(0., e.y)).rgb) - luma(texture2D(tPaint, uv - vec2(0., e.y)).rgb);
+      float edge = length(vec2(lx, ly));
+
+      // brush direction: follow image structure, fall back to a loose diagonal in flat areas
+      vec3 T = texture2D(tTensor, vUv).xyz;
+      float E = T.x, F = T.y, G = T.z, D = sqrt((E - G) * (E - G) + 4.0 * F * F);
+      float l1 = 0.5 * (E + G + D), l2 = 0.5 * (E + G - D);
+      vec2 dir = vec2(l1 - E, -F); dir = length(dir) > 1e-7 ? normalize(dir) : vec2(1.0, 0.0);
+      float coh = (l1 + l2) > 1e-7 ? (l1 - l2) / (l1 + l2) : 0.0;
+      float ang = 0.65 + (fbm2(p * 0.005) - 0.5) * 1.8;
+      vec2 dflat = vec2(cos(ang), sin(ang));
+      if (dot(dir, dflat) < 0.0) dir = -dir;
+      dir = normalize(mix(dflat, dir, smoothstep(0.1, 0.5, coh) * smoothstep(0.0004, 0.004, E + G)) + 1e-4);
+      vec2 q = vec2(dot(p, dir), dot(p, vec2(-dir.y, dir.x)));
+      float stroke = vn(q * vec2(0.035, 0.42)) * 0.6 + vn(q * vec2(0.08, 1.05) + 13.0) * 0.4;
+
+      // gouache body: matte, opaque, a touch chalky, flatter values
+      float L = luma(c);
+      c = mix(vec3(L), c, 1.1);
+      float bands = 8.0;
+      float f = fract(L * bands);
+      float Lq = (floor(L * bands) + smoothstep(0.3, 0.7, f)) / bands;
+      c *= mix(1.0, Lq / max(L, 1e-3), 0.4);
+      c = mix(c, c * 0.87 + vec3(0.07, 0.066, 0.06), 0.85);
+      c *= 1.0 + (stroke - 0.5) * 0.14;
+
+      // pigment gathers where one area meets another
+      c = mix(c, c * c * 0.95, smoothstep(0.05, 0.22, edge) * 0.45);
+
+      // dry brush: paper peeks through at stroke ends and edges
+      float th = tooth(p);
+      float dry = smoothstep(0.8, 0.95, th + (0.5 - stroke) * 0.5 + smoothstep(0.05, 0.22, edge) * 0.22);
+      c = mix(c, paper, dry * 0.45);
+
+      // paper tooth, lit from the top left
+      float tx = tooth(p + vec2(1.0, 0.0)) - th, ty = tooth(p + vec2(0.0, 1.0)) - th;
+      c *= 1.0 + (ty - tx) * 0.35;
+      c += (hash(floor(p * 1.5)) - 0.5) * 0.008;
+
+      vec2 vv = vUv - 0.5;
+      c *= 1.0 - dot(vv, vv) * 0.22;
+      gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+    }`,
+    { tPaint: { value: rtPaint.texture }, tTensor: { value: rtTensor.texture }, res: { value: new THREE.Vector2() }, ppx: { value: new THREE.Vector2() }, scale: { value: 1 }, paper: { value: new THREE.Vector3(0.93, 0.9, 0.83) } });
+
+  function sizePost(w, h) {
+    const ps = Math.min(window.devicePixelRatio || 1, 1.25);
+    const pw = Math.max(1, Math.round(w * ps)), ph = Math.max(1, Math.round(h * ps));
+    rtScene.setSize(pw, ph); rtLDR.setSize(pw, ph); rtPaint.setSize(pw, ph);
+    const tw = Math.max(1, Math.round(pw / 2)), th = Math.max(1, Math.round(ph / 2));
+    rtTensor.setSize(tw, th);
+    tensorPass.u.px.value.set(1 / pw, 1 / ph);
+    paintPass.u.px.value.set(1 / pw, 1 / ph);
+    paintPass.u.tpx.value.set(1 / tw, 1 / th);
+    paintPass.u.radius.value = Math.min(5.2 * ps, 6.2);
+    const r = renderer.getPixelRatio();
+    compPass.u.res.value.set(w * r, h * r);
+    compPass.u.scale.value = r;
+    compPass.u.ppx.value.set(1 / pw, 1 / ph);
+  }
+  function renderFrame() {
+    if (!gouache) { renderer.setRenderTarget(null); renderer.render(scene, camera); return; }
+    renderer.setRenderTarget(rtScene); renderer.render(scene, camera);
+    ldrPass.run(rtLDR);
+    tensorPass.run(rtTensor);
+    paintPass.run(rtPaint);
+    compPass.run(null);
+  }
+  const paintBtn = document.getElementById('paint'), paintLbl = document.getElementById('paintLabel');
+  paintBtn.addEventListener('click', () => {
+    gouache = !gouache;
+    paintBtn.setAttribute('aria-pressed', String(gouache));
+    paintLbl.textContent = gouache ? 'Raw render' : 'Gouache';
+  });
+
+  /* ---------- resize + loop ---------- */
+  function resize() {
+    const w = innerWidth, h = innerHeight, a = w / h;
+    renderer.setSize(w, h, false);
+    camera.aspect = a;
+    camera.fov = a < 1 ? Math.min(70, 38 / Math.pow(a, 0.7)) : 38;
+    camera.updateProjectionMatrix();
+    sizePost(w, h);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  const clock = new THREE.Clock();
+  let first = true;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+    controls.update();
+    for (const m of moons) {
+      const a = t * m.speed + m.ph;
+      m.m.position.set(Math.cos(a) * m.r, Math.sin(a) * m.r * Math.sin(m.inc), Math.sin(a) * m.r * Math.cos(m.inc));
+      m.m.rotation.y = t * m.spin;
+    }
+    updateWalkers(dt, t);
+    renderFrame();
+    if (first) { first = false; requestAnimationFrame(() => canvas.classList.add('ready')); }
+  }
+  renderer.setAnimationLoop(frame);
+})();
+</script>
+</body>
+</html>

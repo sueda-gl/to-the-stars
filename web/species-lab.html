@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Species lab</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0d0c10; }
+  canvas { position: fixed; left: 0; top: 0; display: block; }
+  .tag { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); font: italic 15px "Iowan Old Style", Georgia, serif; color: #3d5588;
+    background: rgba(243, 236, 220, .88); padding: 6px 14px; border-radius: 999px; z-index: 3; white-space: nowrap; }
+  .tag a { color: inherit; margin: 0 4px; }
+</style>
+</head>
+<body>
+<!-- The townsfolk next to the reference folk, on her Red arch far terrace, in her Gouache (painter defaults untouched).
+     ?view=lineup (default: everyone in a row) | ?focus=twinkle|glim|moth|loaf (close, three trades) | ?march=1 (walk in place)
+     Fixed clock: window.__shot.seek(t); ?t=2 for a still. ?w=&h=&dpr= for a fixed render size. -->
+<div class="tag">species lab · <a href="?">lineup</a><a href="?march=1">march</a><a href="?focus=twinkle">twinkle</a><a href="?focus=glim">glim</a><a href="?focus=moth">moth</a><a href="?focus=loaf">loaf</a></div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module" src="js/lab/species-lab.js"></script>
+</body>
+</html>

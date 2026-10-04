@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Red arch at sundown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+</head>
+<body>
+<!-- The Red arch, rebuilt only from web/js/paint/*. Same build order as the original, so the shared
+     rnd stream (mulberry32(11)) and the material ids line up and the pixels match. #gouache #raw #close #nolines #settings, ?still=1 -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createKit } from './js/paint/kit.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { buildRedArch, referenceNav, camBase, lookBase, CLOSE_FOCUS } from './js/paint/redArch.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { mountPaintUI, createOrbitRig } from './js/paint/ui.js';
+
+if (/[?&]still=1/.test(location.search)) window.__STILL = true;
+
+// renderer / scene / camera (the original's order)
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.5, 1200);
+camera.position.copy(camBase); camera.lookAt(lookBase);
+const seed = +(new URLSearchParams(location.search).get('seed') || 11);   // ?seed= is only for the test's negative control
+const ctx = createContext({ renderer, scene, camera, seed });
+
+// the kit first: the original makes paintMat before anything else, and material ids set draw order
+const kit = createKit(ctx);
+const backdrop = createBackdrop(ctx, { camBase });
+const arch = buildRedArch(ctx, kit);
+const folk = createFolk(ctx, backdrop, referenceNav(ctx));
+for (let i = 0; i < 10; i++) folk.make.puffer(i);
+for (let i = 0; i < 10; i++) folk.make.loaf(i);
+for (let i = 0; i < 8; i++) folk.make.drop(i);
+for (let i = 0; i < 8; i++) folk.make.scoot(i);
+for (let i = 0; i < 13; i++) folk.make.flit(i);
+for (let i = 0; i < 10; i++) folk.make.pip(i);
+for (let i = 0; i < 8; i++) folk.make.floatie(i);
+folk.update(0.016, 0);
+
+const painter = createPainter(ctx, folk);
+addEventListener('resize', () => painter.resize());
+const rig = createOrbitRig(painter, { camBase, lookBase, closeFocus: CLOSE_FOCUS });
+mountPaintUI(painter, { rig });
+painter.resize();
+
+const clock = new THREE.Clock();
+const { creatures, hoppers, drops, scoots, flits, pips, floaties } = folk;
+if (window.__STILL) window.__arch = { camera, creatures, hoppers, drops, scoots, flits, pips, floaties, renderPainted: painter.renderPainted, updateCreatures: folk.update, renderer, scene, get mode() { return painter.mode; } };
+const beforeDraw = t => { rig.place(); backdrop.update(t); arch.update(t); };
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  const t = clock.elapsedTime * (ctx.reduceMotion ? 0.15 : 1);
+  folk.update(dt * (ctx.reduceMotion ? 0.4 : 1), t);
+  rig.update(dt);
+  const drew = painter.frame(dt, t, beforeDraw);
+  if (window.__STILL && drew) return;
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

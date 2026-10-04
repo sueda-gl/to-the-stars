@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marks lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<style>
+  .lab { position: fixed; left: max(18px, 3.4vmin); top: max(18px, 3.4vmin); display: flex; flex-wrap: wrap; gap: 6px; max-width: min(720px, calc(100vw - 36px));
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; }
+  .lab button { font: inherit; font-size: 16px; line-height: 1; color: var(--ink); cursor: pointer; border: 0; border-radius: 999px; padding: 8px 14px 9px;
+    background: color-mix(in srgb, var(--paper) 88%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .lab button:hover, .lab button.on { background: var(--ink); color: var(--paper); font-style: italic; }
+  .lab button:disabled { opacity: .45; cursor: default; background: color-mix(in srgb, var(--paper) 88%, transparent); color: var(--ink); font-style: normal; }
+  .lab button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .lab .sep { width: 100%; height: 0; }
+  .lab-note { position: fixed; left: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + env(safe-area-inset-bottom, 0px)); font-family: "Instrument Serif", Georgia, serif;
+    font-style: italic; font-size: 15px; color: var(--ink); padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 82%, transparent); max-width: calc(100vw - 36px); }
+  .lab-mark { position: fixed; right: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + env(safe-area-inset-bottom, 0px)); font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink);
+    padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--paper) 86%, transparent); max-width: min(380px, calc(100vw - 36px)); white-space: pre-wrap; }
+  body.shot .lab, body.shot .lab-note, body.shot .lab-mark, body.shot .editions, body.shot .tweaks-toggle { display: none; }
+  canvas { cursor: crosshair; }
+</style>
+</head>
+<body>
+<!-- Marks + fillers on the real paint engine and the real relief world. Click = pencil ✕, drag a loop = an area,
+     drag a line = a line; then fill the current mark. ?pencil=overlay|keyline|colour compares the pencil routes.
+     ?shot=1 hides the chrome. window.__marks exposes the hooks the puppeteer check uses. -->
+<div class="lab" role="group" aria-label="Fill the current mark">
+  <button data-fill="field" data-need="area">Field</button>
+  <button data-fill="wheat" data-need="area">Wheat</button>
+  <button data-fill="field" data-crop="lavender" data-need="area">Lavender</button>
+  <button data-fill="vineyard" data-need="area">Vineyard</button>
+  <button data-fill="field" data-crop="veg" data-need="area">Kitchen garden</button>
+  <button data-fill="forest" data-need="area">Forest</button>
+  <button data-fill="garden" data-need="area">Garden</button>
+  <button data-fill="plaza" data-need="area">Plaza</button>
+  <button data-fill="orchard" data-need="area">Orchard</button>
+  <span class="sep"></span>
+  <button data-fill="road" data-need="line">Road</button>
+  <button data-fill="wall" data-need="line">Wall</button>
+  <button data-fill="fence" data-need="line">Fence</button>
+  <button data-fill="hedge" data-need="line">Hedge</button>
+  <button data-fill="river" data-need="line">River</button>
+  <button data-fill="canal" data-need="line">Canal</button>
+  <button data-place="house" data-need="any">House on the mark</button>
+  <button data-do="undo">Undo fill</button>
+  <button data-do="clear">Clear marks</button>
+  <button data-do="home">Bird's-eye</button>
+</div>
+<div class="lab-note">Click: a pencil ✕ · drag a loop: an area · drag a line: a line · Esc clears the last · right-click a mark clears it · WASD / wheel / right-drag move the camera</div>
+<div class="lab-mark" aria-live="polite">no mark</div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createKit } from './js/paint/kit.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { mountPaintUI } from './js/paint/ui.js';
+import { createGame } from './js/sim/index.js';
+import * as geography from './js/globe/geography.js';
+import { createWorld, worldCamBase, makeNav } from './js/world/world.js';
+import { createBuildApi } from './js/buildings/api.js';
+import { createReveal } from './js/buildings/reveal.js';
+import { createFillers } from './js/buildings/fill.js';
+import { createMarks } from './js/marks/marks.js';
+
+const Q = new URLSearchParams(location.search);
+if (Q.get('shot')) document.body.classList.add('shot');
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.5, 1400);
+const ctx = createContext({ renderer, scene, camera, seed: 11 });
+const kit = createKit(ctx);
+const backdrop = createBackdrop(ctx, { camBase: worldCamBase() });
+const game = createGame({ seed: 7, name: 'Agora', offline: true });
+const world = createWorld(ctx, kit, game, { geography, backdrop });
+const nav = makeNav(game, world);
+const folk = createFolk(ctx, backdrop, nav);
+if (!Q.has('nofolk')) for (const [sp, n] of [['puffer', 2], ['loaf', 1], ['drop', 1], ['pip', 1]]) for (let i = 0; i < n; i++) folk.make[sp](i);
+folk.update(0.016, 0);
+const painter = createPainter(ctx, folk, { framing: world.framing });
+addEventListener('resize', () => painter.resize());
+const ui = mountPaintUI(painter, { closeUp: false });
+painter.resize();
+painter.setMode(location.hash === '#raw' ? 2 : 1);
+
+const api = createBuildApi(ctx, kit, { keyDir: backdrop.KEY_DIR });
+let lib = null;
+try { const m = await import('./js/buildings/library.js'); lib = m.createLibrary(ctx, kit, { api }); await lib.load(); } catch (e) { lib = null; }
+const fillers = createFillers(ctx, kit, api, { groundY: (x, z) => world.groundY(x, z), library: lib, avoid: (x, z) => world.isWater(x, z) });
+
+// the leader's bird's-eye: ~58° down over the plot
+const BIRD = { tx: 0, ty: 0, tz: 4, yaw: 0, pitch: 1.0, dist: 84, fov: 46 };
+world.rig.setPose({ ...BIRD });
+
+const panel = document.querySelector('.lab-mark');
+const marks = createMarks(ctx, world, {
+  style: Q.get('pencil') || 'overlay',
+  buildings: () => [...game.state.buildings, ...made.map(f => ({ id: f.id, name: f.name, x: f.group.position.x, z: f.group.position.z }))],
+  onChange: () => { const s = marks.summarize(); panel.textContent = s ? JSON.stringify(s, null, 1) : 'no mark'; syncButtons(); }
+});
+function syncButtons() {
+  const m = marks.current();
+  document.querySelectorAll('[data-need]').forEach(b => { b.disabled = !m || (b.dataset.need === 'any' ? false : b.dataset.need === 'area' ? m.kind !== 'area' && m.kind !== 'point' : m.kind === 'point'); });
+}
+syncButtons();
+
+// ---------- fill the current mark: pencil (the mark fades as the object's sketch takes over), then paint ----------
+const made = []; let fillN = 0;
+async function fillCurrent(kind, o = {}, { sketchS = 1.0, paintS = 3.0, freeze = null } = {}) {
+  const m = marks.current(); if (!m) return null;
+  const g = fillers.fill(kind, m, o); if (!g) return null;
+  scene.add(g);
+  const r = fillers.reveal ? fillers.reveal(g) : createReveal(ctx, g);
+  const rec = { id: 'fill' + (++fillN), name: (o.crop || kind) + ' ' + fillN, kind, group: g, reveal: r, info: g.userData.agora };
+  made.push(rec);
+  r.hide();
+  marks.consume(m.id, 1.5);
+  painter.markDirty();
+  if (freeze) { const [st, p] = freeze.split(':'); if (st === 'sketch') r.setSketch(+p); else { r.setSketch(1); r.setPaint(+p); } painter.markDirty(); return rec; }
+  await r.sketch(sketchS); await r.paint(paintS); r.done(); painter.markDirty();
+  return rec;
+}
+// a single object on the mark: the ✕ is its centre (an area: its centroid; a line: its middle)
+async function placeOnMark(kind = 'house', { freeze = null } = {}) {
+  const m = marks.current(); if (!m || !lib) return null;
+  const at = m.kind === 'point' ? { x: m.x, z: m.z } : m.centroid;
+  const g = lib.create(kind, { rot: 0 }); g.position.set(at.x, world.groundY(at.x, at.z), at.z); scene.add(g);
+  const r = createReveal(ctx, g), rec = { id: 'fill' + (++fillN), name: kind + ' ' + fillN, kind, group: g, reveal: r, info: { kind, at } };
+  made.push(rec); r.hide(); marks.consume(m.id, 1.5); painter.markDirty();
+  if (freeze) { const [st, p] = freeze.split(':'); if (st === 'sketch') r.setSketch(+p); else { r.setSketch(1); r.setPaint(+p); } return rec; }
+  await r.sketch(0.8); await r.paint(2.5); r.done(); painter.markDirty();
+  return rec;
+}
+document.querySelectorAll('[data-place]').forEach(b => b.addEventListener('click', () => placeOnMark(b.dataset.place)));
+document.querySelectorAll('[data-fill]').forEach(b => b.addEventListener('click', () => fillCurrent(b.dataset.fill, b.dataset.crop ? { crop: b.dataset.crop } : {})));
+const ACT = {
+  undo: () => { const f = made.pop(); if (f) { f.reveal.stop && f.reveal.stop(); if (f.group.userData.agora && f.group.userData.agora.part === 'fill') fillers.release(f.group); else if (lib) lib.release(f.group); painter.markDirty(); } },
+  clear: () => marks.clear(),
+  home: () => world.rig.setPose({ ...BIRD })
+};
+document.querySelectorAll('[data-do]').forEach(b => b.addEventListener('click', () => ACT[b.dataset.do]()));
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  world.update(dt, t); folk.update(dt, t);
+  if (made.some(f => f.reveal.state === 'painting' || f.reveal.state === 'sketch')) painter.markDirty();
+  painter.frame(dt, t, tt => world.beforeDraw(tt));
+  requestAnimationFrame(frame);
+}
+frame();
+
+// ---------- headless hooks ----------
+window.__marks = {
+  ready: world.ready.then(() => true), ctx, world, game, painter, marks, fillers, api, lib, made, fillCurrent, placeOnMark, ACT, BIRD,
+  // screen position (css px) of a ground point
+  screen(x, z) { const p = world.project(x, world.groundY(x, z), z); return [p.x, p.y]; },
+  stats() {
+    let draws = 0, tris = 0; scene.traverse(o => { if (o.isMesh && o.visible) { draws++; } });
+    renderer.info.reset(); renderer.render(scene, camera); tris = renderer.info.render.triangles; draws = renderer.info.render.calls;
+    painter.markDirty(); return { draws, tris, lineOnly: ctx.lineOnly.length, colourOnly: ctx.colourOnly.length, marks: marks.list().length, fills: made.map(f => f.info) };
+  }
+};
+</script>
+</body>
+</html>

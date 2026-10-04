@@ -1,0 +1,83 @@
+/* The Gouache lab (web/js/lab/look-lab.js): a calm paper sheet in the reference's own idiom (its Gouache settings
+   panel: Instrument Serif, the paper tokens, a hairline ink ring, red slider thumbs). Docked left; G closes it. */
+.look-lab {
+  --ll-paper: var(--paper, #f3ecdc); --ll-ink: var(--ink, #3d5588); --ll-red: var(--red, #e0503f);
+  --ll-rule: rgba(61, 85, 136, .16);
+  position: fixed; z-index: 61; left: max(14px, 2.4vmin); top: max(14px, 2.4vmin); bottom: max(14px, 2.4vmin);
+  width: min(318px, calc(100vw - 28px)); display: flex; flex-direction: column; box-sizing: border-box;
+  border-radius: 14px; color: var(--ll-ink);
+  background: color-mix(in srgb, var(--ll-paper) 95%, transparent);
+  box-shadow: 0 0 0 1px rgba(61, 85, 136, .22), 0 14px 40px rgba(40, 20, 10, .14);
+  font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.look-lab[hidden] { display: none; }
+.look-lab * { box-sizing: border-box; }
+.look-lab button { font: inherit; color: inherit; }
+
+.ll-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--ll-rule); }
+.ll-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ll-title h2 { margin: 0; font-weight: 400; font-style: italic; font-size: 25px; line-height: 1; letter-spacing: .005em; }
+.ll-close { background: none; border: 0; cursor: pointer; font-size: 15px; padding: 2px 0; opacity: .7; }
+.ll-close:hover { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
+.ll-sub { margin: 5px 0 0; font-size: 14px; font-style: italic; opacity: .62; }
+
+.ll-pill { display: inline-flex; gap: 2px; padding: 3px; margin-top: 10px; border-radius: 999px; box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+.ll-pill button { font-size: 16px; line-height: 1; background: none; border: 0; padding: 6px 13px 7px; border-radius: 999px; cursor: pointer; }
+.ll-pill button[aria-pressed="true"] { background: var(--ll-ink); color: var(--ll-paper); font-style: italic; }
+.ll-stage { margin-left: 10px; font-size: 14px; font-style: italic; background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; opacity: .75; }
+.ll-stage[hidden] { display: none; }
+.ll-probe { margin: 8px 0 0; font-size: 13px; line-height: 1.3; opacity: .6; }
+
+.ll-presets { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 16px 11px; border-bottom: 1px solid var(--ll-rule); }
+.ll-presets button { font-size: 15px; line-height: 1; padding: 6px 11px 7px; border-radius: 999px; cursor: pointer; border: 0;
+  background: color-mix(in srgb, var(--ll-paper) 70%, #fff); box-shadow: 0 0 0 1px rgba(61, 85, 136, .22); }
+.ll-presets button:hover, .ll-presets button.is-on { background: var(--ll-ink); color: var(--ll-paper); font-style: italic; }
+
+.ll-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 2px 16px 8px; scrollbar-width: thin; scrollbar-color: rgba(61,85,136,.3) transparent; }
+.ll-sec { border-bottom: 1px solid var(--ll-rule); }
+.ll-sec:last-child { border-bottom: 0; }
+.ll-sec > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; justify-content: space-between; padding: 11px 0 9px; font-size: 19px; }
+.ll-sec > summary::-webkit-details-marker { display: none; }
+.ll-sec > summary::after { content: "+"; font-size: 17px; opacity: .55; }
+.ll-sec[open] > summary::after { content: "–"; }
+.ll-sec > summary small { font-size: 13px; font-style: italic; opacity: .55; margin-left: auto; margin-right: 10px; }
+.ll-sec-body { padding: 0 0 10px; }
+
+.ll-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px; margin-bottom: 8px; }
+.ll-row label { font-size: 16px; }
+.ll-row output { font-size: 14px; font-variant-numeric: tabular-nums; opacity: .7; }
+.ll-row input[type=range] { grid-column: 1 / -1; width: 100%; margin: 2px 0 0; accent-color: var(--ll-red); }
+.ll-row.is-color, .ll-row.is-bool { align-items: center; }
+.ll-swatch { display: inline-flex; align-items: center; gap: 7px; }
+.ll-swatch code { font-family: inherit; font-size: 13px; opacity: .6; font-variant-numeric: tabular-nums; }
+.look-lab input[type=color] { -webkit-appearance: none; appearance: none; width: 30px; height: 20px; padding: 0; border: 0; border-radius: 6px; cursor: pointer;
+  background: none; box-shadow: 0 0 0 1px rgba(61, 85, 136, .3); }
+.look-lab input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+.look-lab input[type=color]::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.look-lab input[type=checkbox] { accent-color: var(--ll-ink); width: 16px; height: 16px; margin: 0; }
+.ll-palette { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.ll-palette input[type=color] { width: 26px; height: 26px; border-radius: 50%; }
+.ll-palette input[type=color]::-webkit-color-swatch { border-radius: 50%; }
+.ll-row.is-missing { opacity: .34; }
+.ll-row.is-missing input { cursor: not-allowed; }
+.ll-row.is-missing label::after { content: " · not wired"; font-size: 12px; font-style: italic; }
+
+/* the reference's own Gouache settings panel, mounted verbatim (paint/ui.js) and seated in the sheet */
+.look-lab .ll-gouache .tweaks { position: static !important; display: block !important; width: auto; max-height: none; overflow: visible;
+  padding: 0 0 4px; margin: 0; background: none; box-shadow: none; border-radius: 0; }
+.look-lab .ll-gouache :is(.editions, .tweaks-toggle, .closeup) { display: none !important; }
+body.ag-no-paint-chrome .look-lab .ll-gouache .tweaks { display: block !important; }
+body.ag-title-on .look-lab .ll-gouache .tweaks { opacity: 1 !important; pointer-events: auto !important; }
+
+.ll-foot { padding: 10px 16px 12px; border-top: 1px solid var(--ll-rule); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.ll-save { font-size: 16px; line-height: 1; border: 0; border-radius: 999px; padding: 8px 15px 9px; cursor: pointer; background: var(--ll-ink); color: var(--ll-paper) !important; font-style: italic; }
+.ll-save:hover { background: color-mix(in srgb, var(--ll-ink) 86%, #000); }
+.ll-link { font-size: 15px; background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.ll-status { flex-basis: 100%; min-height: 1.2em; font-size: 13.5px; font-style: italic; opacity: .7; line-height: 1.3; }
+.ll-status.is-warn { color: var(--ll-red); opacity: 1; }
+
+.look-lab :is(button, input, summary):focus-visible { outline: 2px solid var(--ll-red); outline-offset: 2px; }
+@media (max-width: 520px) { .look-lab { top: auto; height: 62vh; left: 10px; right: 10px; width: auto; } }
+@media (prefers-reduced-motion: reduce) { .look-lab { transition: none; } }

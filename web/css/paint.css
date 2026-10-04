@@ -1,0 +1,56 @@
+/* The Red arch's <style>, verbatim. Game styles go in agora.css. */
+  :root {
+    --paper: #f3ecdc; --ink: #3d5588; --red: #e0503f;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #f3ecdc; --ink: #3d5588; } }
+  :root[data-theme="dark"] { --paper: #f3ecdc; --ink: #3d5588; }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--paper); }
+  canvas { position: fixed; inset: 0; display: block; width: 100vw; height: 100vh; touch-action: none; }
+  .editions {
+    position: fixed; right: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    box-shadow: 0 0 0 1px rgba(61, 85, 136, .25);
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  }
+  .editions button {
+    font: inherit; font-size: 17px; line-height: 1; color: var(--ink);
+    background: none; border: 0; padding: 7px 13px 8px; border-radius: 999px; cursor: pointer;
+  }
+  .editions button[aria-pressed="true"] { background: var(--ink); color: var(--paper); font-style: italic; }
+  .editions button:focus-visible, .tweaks-toggle:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .closeup { position: fixed; left: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 10px;
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; color: var(--ink); }
+  .closeup-btn { font: inherit; font-size: 17px; line-height: 1; color: var(--ink); cursor: pointer; border: 0; border-radius: 999px; padding: 10px 16px 11px;
+    background: color-mix(in srgb, var(--paper) 88%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .closeup-btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); font-style: italic; }
+  .closeup-btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .closeup-hint { font-size: 15px; font-style: italic; padding: 6px 10px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 80%, transparent); }
+  .closeup-hint[hidden] { display: none; }
+  .tweaks-toggle {
+    position: fixed; right: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + 52px + env(safe-area-inset-bottom, 0px));
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; font-size: 16px; line-height: 1; color: var(--ink);
+    background: color-mix(in srgb, var(--paper) 88%, transparent); border: 0; border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); padding: 8px 14px 9px; cursor: pointer;
+  }
+  .tweaks-toggle[aria-expanded="true"] { background: var(--ink); color: var(--paper); font-style: italic; }
+  .tweaks {
+    position: fixed; right: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + 98px + env(safe-area-inset-bottom, 0px));
+    width: min(280px, calc(100vw - 36px)); max-height: calc(100vh - 160px); overflow-y: auto; box-sizing: border-box;
+    padding: 14px 16px 12px; border-radius: 14px;
+    background: color-mix(in srgb, var(--paper) 94%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .22), 0 10px 30px rgba(40, 20, 10, .12);
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; color: var(--ink);
+  }
+  .tweaks[hidden], .tweaks-toggle[hidden] { display: none; }
+  .tweak { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px; margin-bottom: 8px; }
+  .tweak label { font-size: 16px; }
+  .tweak output { font-size: 14px; font-variant-numeric: tabular-nums; opacity: .7; }
+  .tweak input[type=range] { grid-column: 1 / -1; width: 100%; margin: 2px 0 0; accent-color: var(--red); }
+  .tweak.dim { opacity: .4; }
+  .tweak-row { display: flex; justify-content: space-between; align-items: center; margin: 2px 0 10px; font-size: 16px; }
+  .tweak-row input { accent-color: var(--ink); width: 16px; height: 16px; margin: 0 0 0 8px; }
+  .tweaks .reset { font: inherit; font-size: 15px; color: var(--ink); background: none; border: 0; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .tweaks input:focus-visible, .tweaks .reset:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }

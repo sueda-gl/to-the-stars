@@ -1,0 +1,11 @@
+/* AGORA typeface (Sueda, 2026-10-04): G = Basteleur (Velvetyne, OFL) for display — slanted — + Sentient (Fontshare/ITF Free Font License) for text.
+   Vendored locally so the game works offline at the venue. */
+@font-face { font-family: Basteleur; src: url(../assets/fonts/Basteleur-Moonlight.woff2) format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Basteleur; src: url(../assets/fonts/Basteleur-Bold.woff2) format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: Sentient; src: url(../assets/fonts/Sentient-Regular.woff2) format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: Sentient; src: url(../assets/fonts/Sentient-Italic.woff2) format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: Sentient; src: url(../assets/fonts/Sentient-Medium.woff2) format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+:root {
+  --ag-font-display: Basteleur, Georgia, serif;   /* headings, titles, signatures, captions — set in italic (slanted) */
+  --ag-font-text: Sentient, Georgia, serif;       /* all reading text */
+}

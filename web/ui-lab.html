@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agora UI lab</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<link rel="stylesheet" href="css/agora.css">
+<link rel="stylesheet" href="css/aloud.css">
+<style>
+  /* lab only: a still of the world behind the UI, and a drawer of buttons that stays out of screenshots (?state=...) */
+  body { margin: 0; background: #c9d6cf; overflow: hidden; }
+  .lab-bg { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; display: block; }
+  .lab { position: fixed; left: 50%; top: 50%; translate: -50% -50%; z-index: 100; width: 320px; max-height: 80vh; overflow: auto; padding: 12px 14px; border-radius: 14px;
+    background: color-mix(in srgb, var(--paper) 96%, transparent); box-shadow: 0 0 0 1px rgba(61,85,136,.3), 0 10px 30px rgba(40,20,10,.15);
+    font-family: "Instrument Serif", Georgia, serif; color: var(--ink); }
+  .lab h3 { margin: 6px 0 4px; font-weight: 400; font-style: italic; font-size: 17px; }
+  .lab button, .lab a { font: inherit; font-size: 14px; color: var(--ink); background: none; border: 0; border-radius: 999px; box-shadow: 0 0 0 1px rgba(61,85,136,.3); padding: 4px 9px; margin: 2px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .lab .x { position: absolute; right: 10px; top: 8px; }
+  .lab[hidden] { display: none; }
+  .lab-open { position: fixed; left: 50%; top: 8px; translate: -50% 0; z-index: 100; font: 13px Georgia, serif; color: var(--ink); background: var(--paper); border: 0; border-radius: 999px; box-shadow: 0 0 0 1px rgba(61,85,136,.3); padding: 3px 10px; cursor: pointer; }
+  #log { font-size: 13px; font-style: italic; opacity: .8; min-height: 40px; }
+  /* lab only: what the game's world layer draws (ART_DIRECTION §15): a TINY text tag above the sender's head while
+     the letter is unread (the name, a one-line message, 2–3 quick replies). In the game this is the agents layer. */
+  .lab-pins { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .lab-pin { position: absolute; translate: -50% -100%; pointer-events: auto; cursor: pointer; max-width: 168px; padding: 3px 7px 4px; border-radius: 3px;
+    background: #f6f0e1; box-shadow: 0 .5px 0 rgba(61,85,136,.25), 0 3px 7px rgba(50,26,10,.22); font: 11.5px/1.2 var(--ag-font-text); font-size-adjust: var(--ag-fsa-text); color: var(--ink); }
+  .lab-pin::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; translate: -50% 0; rotate: 45deg; background: #f6f0e1; }
+  .lab-pin b { font-weight: 400; font-family: var(--ag-font-display); font-size-adjust: var(--ag-fsa-display); }
+  .lab-pin .m { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; opacity: .8; }
+  .lab-pin .q { display: flex; flex-wrap: wrap; gap: 0 7px; margin-top: 1px; white-space: nowrap; }
+  .lab-pin .q span { text-decoration: underline; text-decoration-color: rgba(61,85,136,.35); text-underline-offset: 2px; font-style: italic; }
+</style>
+</head>
+<body>
+<img class="lab-bg" src="assets/backdrop-map.jpg" alt="">
+<div class="lab-pins" id="pins"></div>
+
+<div class="lab" id="lab" hidden>
+  <button class="x" data-a="labclose">hide</button>
+  <h3>Presets</h3>
+  <div id="presets"></div>
+  <h3>Backdrop</h3>
+  <a href="?bg=map&amp;lab=1">relief map</a><a href="?bg=green&amp;lab=1">green map</a><a href="?bg=arch&amp;lab=1">Red arch</a><a href="?bg=folk&amp;lab=1">folk close</a>
+  <h3>Letters</h3>
+  <button data-a="fan">fan out</button><button data-a="gather">gather</button><button data-a="lnew">arrive</button><button data-a="lnb">neighbour</button><button data-a="lmin">ministry</button><button data-a="lopen">open</button><button data-a="lnext">next</button><button data-a="lres">resolve open</button><button data-a="lvar">toggle A/B</button>
+  <h3>Mail (§14)</h3>
+  <button data-a="mnote">note: Olla</button><button data-a="mnote3">3 notes</button><button data-a="mcol">column</button><button data-a="mlatest">open latest (stack)</button><button data-a="mcompact">compact: Olla</button><button data-a="mnext">next ↓</button><button data-a="mclose">close card</button><button data-a="mseeall">see all</button>
+  <h3>Font</h3>
+  <div id="fonts"></div>
+  <h3>Voice</h3>
+  <button data-a="vidle">idle</button><button data-a="vlisten">listening</button><button data-a="vthink">thinking</button><button data-a="vdone">done</button><button data-a="verr">error</button><button data-a="vspeak">fake speech</button><button data-a="vtype">type</button><button data-a="vhint">idle hint</button>
+  <h3>Notices</h3>
+  <button data-a="nministry">ministry + progress</button><button data-a="nadv">advance</button><button data-a="ninfo">info</button><button data-a="nnb">neighbour</button><button data-a="nmin">minister</button>
+  <h3>State</h3>
+  <button data-a="ledger">ledger</button><button data-a="card">agent card</button><button data-a="talk">talk</button><button data-a="tsay">folk says…</button><button data-a="mset">appoint Brusk</button><button data-a="hud">bump stores</button><button data-a="off">offline toggle</button>
+  <h3>Moments</h3>
+  <button data-a="title">title</button><button data-a="ob">onboarding</button><button data-a="meet">meeting</button><button data-a="meetend">end meeting</button><button data-a="dir">director line</button><button data-a="dirx">hide line</button><button data-a="envoy">Earth's envoy</button>
+  <h3>Opening</h3>
+  <button data-a="fleet">next fleet</button><button data-a="fleetx">hide fleet</button><button data-a="elect">election</button><button data-a="hov">hover Olla</button><button data-a="elected">elect Olla</button><button data-a="electx">end</button>
+  <h3>Log</h3>
+  <div id="log"></div>
+</div>
+<button class="lab-open" id="labOpen" hidden>lab</button>
+
+<script type="module">
+import { createUI, FONT_SETS } from './js/ui/ui.js';
+
+const q = new URLSearchParams(location.search), preset = q.get('state'), isLab = q.has('lab') && q.get('lab') !== '0';
+const BG = { map: 'assets/backdrop-map.jpg', green: 'assets/backdrop-green.jpg', arch: 'assets/backdrop-reference.png', folk: 'assets/backdrop-folk.jpg' };
+// the folk presets sit over a close still of the landed folk (shots/agents/close-landed.png, cropped)
+const FOLK_STATES = ['agentcard2', 'talk', 'fleetcaption', 'election', 'elected', 'pick'];
+// where each sender is on the backdrops (image px): the "world" the compact card is anchored to. MAP_AT: the settlement
+// glows on backdrop-map.jpg (1072x714); the folk ones are FOLK_AT below.
+const MAP_AT = { a1: [642, 379], a2: [560, 294], a3: [527, 213], a4: [772, 203], n2: [931, 348], n1: [600, 470], n3: [880, 470], builds: [832, 232], folk: [700, 300] };
+const IMG = { map: [1072, 714], green: [940, 596], arch: [1440, 900], folk: [1440, 770] };
+const bgName = q.get('bg') || (FOLK_STATES.includes(preset) ? 'folk' : 'map');
+document.querySelector('.lab-bg').src = BG[bgName] || BG.map;
+// where the folk stand in backdrop-folk.jpg (1440x770, object-fit: cover), just above the head / parasol
+const FOLK_AT = { a1: [625, 296], a2: [372, 338], a3: [866, 296], a4: [1016, 480] };
+// the lab's "camera": the backdrop pans and zooms a little so the sender comes to the middle (on a phone, to the upper
+// third, so the card fits under it). This is what the game's glide does; senderScreen follows it.
+const bgEl = document.querySelector('.lab-bg');
+let camT = 0;
+function frameSender(id, animate = true) {
+  const p = baseScreen(id); if (!p) return;
+  const W = innerWidth, H = innerHeight, sc = 1.22, tx = W / 2, ty = H * (W < 600 ? .26 : .48);
+  const x = Math.max(W * (1 - sc), Math.min(0, tx - sc * p.x)), y = Math.max(H * (1 - sc), Math.min(0, ty - sc * p.y));
+  bgEl.style.transformOrigin = '0 0';
+  bgEl.style.transition = animate ? 'transform .9s cubic-bezier(.45,0,.2,1)' : 'none';
+  bgEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc})`;
+  const t0 = performance.now(); cancelAnimationFrame(camT);
+  const step = () => { posPins(); if (performance.now() - t0 < 1000) camT = requestAnimationFrame(step); };
+  step();
+}
+function senderScreen(id) {
+  const p = baseScreen(id); if (!p) return null;
+  const t = getComputedStyle(bgEl).transform, m = t && t !== 'none' ? new DOMMatrix(t) : null;
+  return m ? { x: m.a * p.x + m.e, y: m.d * p.y + m.f, r: p.r * m.a } : p;
+}
+// the sender's centre and radius on screen: what the game passes as the compact card's anchor
+function senderAnchor(id) {
+  const p = senderScreen(id); if (!p) return null;
+  return bgName === 'folk' ? { x: p.x, y: p.y + p.r * 1.05, r: p.r } : p;
+}
+function baseScreen(id) {
+  if (bgName === 'folk') { const f = folkScreen(id), sc = Math.max(innerWidth / 1440, innerHeight / 770); return f && { ...f, r: 50 * sc }; }
+  const p = MAP_AT[id]; if (!p) return null;
+  const [iw, ih] = IMG[bgName] || IMG.map, sc = Math.max(innerWidth / iw, innerHeight / ih), ox = (innerWidth - iw * sc) / 2, oy = (innerHeight - ih * sc) / 2;
+  return { x: ox + p[0] * sc, y: oy + p[1] * sc, r: 16 };
+}
+// stand-in portraits: the folk's heads cropped from the landed-folk still (the game renders them through the gouache pass)
+const HEADS = { a1: [625, 452, 96], a2: [368, 406, 120], a3: [858, 418, 110], a4: [738, 356, 84] };
+const headImg = new Image(); headImg.src = 'assets/backdrop-folk.jpg';
+const headsReady = new Promise(r => { headImg.onload = r; headImg.onerror = r; });
+const portraitOf = id => !HEADS[id] ? null : headsReady.then(() => {
+  const [cx, cy, s] = HEADS[id], c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'); g.drawImage(headImg, cx - s / 2, cy - s / 2, s, s, 0, 0, 128, 128);
+  try { return c.toDataURL('image/jpeg', .9); } catch (_) { return null; }
+});
+function folkScreen(id) {
+  const p = FOLK_AT[id]; if (!p || bgName !== 'folk') return null;
+  const sc = Math.max(innerWidth / 1440, innerHeight / 770), ox = (innerWidth - 1440 * sc) / 2, oy = (innerHeight - 770 * sc) / 2;
+  return { x: ox + p[0] * sc, y: oy + p[1] * sc };
+}
+// the reference's own chrome is only mounted in the lab (?lab=1), to check nothing collides; the game never shows it
+if (isLab) document.body.insertAdjacentHTML('afterbegin', `<button class="tweaks-toggle" type="button" aria-expanded="false">Gouache settings</button>
+<div class="closeup"><button class="closeup-btn" type="button" aria-pressed="false">Up close</button></div>
+<div class="editions" role="group" aria-label="Edition"><button data-mode="1" aria-pressed="true">Gouache</button><button data-mode="2" aria-pressed="false">Raw 3D</button></div>`);
+const log = (...a) => { const el = document.getElementById('log'); el.textContent = a.join(' '); console.log('[lab]', ...a); };
+
+// ---------- fake world ----------
+const AGENTS = [
+  { id: 'a1', name: 'Olla', species: 'floatie', trade: 'diplomat', skills: { building: 3, baking: 6, farming: 4, crafting: 2, trading: 5, diplomacy: 9, art: 3, scouting: 1 },
+    known: { diplomacy: true, baking: true, trading: true }, traits: ['generous', 'gossip'], mood: 68, loyalty: 80, energy: 70, status: 'talking',
+    workplace: 'the Assembly steps', venture: { name: 'a tea house by the bay', status: 'dream' }, wears: 'a red-striped parasol with a fringe' },
+  { id: 'a2', name: 'Brusk', species: 'flit', trade: 'builder', skills: { building: 8, baking: 1, farming: 3, crafting: 6, trading: 2, diplomacy: 2, art: 1, scouting: 4 },
+    known: { building: true }, traits: ['proud', 'stubborn'], mood: 38, loyalty: 55, energy: 22, status: 'hauling', workplace: 'the windmill site', wears: 'goggles and a tool belt' },
+  { id: 'a3', name: 'Pell', species: 'flit', trade: 'scout', job: 'farmer at the Field', jobBuilding: 'Field', skills: { scouting: 7, farming: 5 }, known: { farming: true }, traits: ['curious'], mood: 55, energy: 80, workplace: null },
+  { id: 'a4', name: 'Mirabel', species: 'floatie', trade: 'baker', skills: {}, known: {}, traits: ['ambitious'], mood: 81, workplace: 'the bakery', venture: { name: 'a boat workshop', status: 'proposed' } }
+];
+const NEIGHBOURS = [
+  { id: 'n1', name: 'Sorrento-on-the-Rock', leaderName: 'Donna Perla', species: 'drop', attitude: 50, desc: 'terraces, lemon trees and a very old bell' },
+  { id: 'n2', name: 'Little Lantern', leaderName: 'Baker Odo', species: 'loaf', attitude: 66, desc: 'a bakers’ village that smells of crust at dawn' },
+  { id: 'n3', name: 'Grey Harbour', leaderName: 'Harbourmaster Brusco', species: 'puffer', attitude: 31, desc: 'stone quays and tall grey cranes' }
+];
+let L = 0;
+const LETTERS = [
+  { from: { kind: 'agent', id: 'a1', name: 'Olla' }, subject: 'On the matter of bread', kind: 'petition', day: 3,
+    body: 'Dear founder,\n\nThe windmill turns all day and nobody bakes. I can bake. I have always been able to bake. Give me an oven near the windmill, and by the next morning the whole plot will smell of crust.\n\nWith flour on my elbows,\nOlla',
+    options: [{ label: 'yes, build it', says: 'Yes, build a bakery near the windmill' }, { label: 'not yet', says: 'Not yet, Olla' }, { label: 'ask Brusk to help', says: 'Brusk, help Olla build the bakery' }] },
+  { from: { kind: 'neighbour', id: 'n2', name: 'Little Lantern' }, subject: 'Crust for timber?', kind: 'trade', day: 4,
+    body: 'To the voice above the new plot,\n\nOur ovens are full and our woodpile is not. Send us six wood and we shall send eight loaves back by the road, warm.\n\n— Baker Odo, for Little Lantern',
+    options: [{ label: 'agreed', says: 'Agreed, send them the wood' }, { label: 'no, thank you', says: 'No thank you, Little Lantern' }] },
+  { from: { kind: 'ministry', id: 'builds', name: 'Ministry of Builds' }, subject: 'Concerning a lighthouse', kind: 'ministry', day: 4,
+    body: 'We have never built a lighthouse. Plans are being drawn. The builders are sharpening their pencils, and Brusk says he has seen one once, from a boat.\n\nIt will take a little while. We will write when it stands.\n\n— the Ministry of Builds' },
+  { from: { kind: 'agent', id: 'a2', name: 'Brusk' }, subject: 'I will not carry another crate', kind: 'refusal', day: 5,
+    body: 'Founder. My back is a bent nail. Ask someone younger, or let me sleep until the gulls stop.\n\n— Brusk, with dusty hands',
+    options: [{ label: 'rest, Brusk', says: 'Brusk, go and rest' }, { label: 'Pell, take over', says: 'Pell, take over the hauling' }] }
+];
+const nextLetter = (i) => { L++; return { id: 'l' + (100 + L), read: false, resolved: false, ...LETTERS[i ?? L % LETTERS.length] }; };
+// a fuller post bag for the inbox: [from, subject, day, read, resolved]
+const BAG = [
+  [{ kind: 'agent', id: 'a1', name: 'Olla' }, 'On the matter of bread', 3, false, false],
+  [{ kind: 'neighbour', id: 'n2', name: 'Little Lantern' }, 'Crust for timber?', 4, false, false],
+  [{ kind: 'ministry', id: 'builds', name: 'Ministry of Builds' }, 'Concerning a lighthouse', 4, true, false],
+  [{ kind: 'agent', id: 'a2', name: 'Brusk' }, 'I will not carry another crate', 5, false, false],
+  [{ kind: 'agent', id: 'a4', name: 'Mirabel' }, 'A boat workshop, if you allow it', 5, false, false],
+  [{ kind: 'neighbour', id: 'n1', name: 'Sorrento-on-the-Rock' }, 'Greetings from the terraces', 2, true, true],
+  [{ kind: 'minister', id: 'a1', name: 'Olla' }, 'The granary is half empty', 5, true, false],
+  [{ kind: 'agent', id: 'a3', name: 'Pell' }, 'I saw smoke over the hills', 3, true, true],
+  [{ kind: 'neighbour', id: 'n3', name: 'Grey Harbour' }, 'Your gulls are in our nets', 4, true, false],
+  [{ kind: 'ministry', id: 'builds', name: 'Ministry of Builds' }, 'The windmill stands', 2, true, true],
+  [{ kind: 'agent', id: 'a2', name: 'Brusk' }, 'Who is good at baking? Not me', 1, true, true],
+  [{ kind: 'folk', id: 'folk', name: 'The Folk of the Plot' }, 'Welcome, founder', 1, true, true]
+];
+const bag = n => Array.from({ length: n }, (_, i) => { const [from, subject, day, read, resolved] = BAG[i % BAG.length]; const t = LETTERS.find(l => l.from.id === from.id) || LETTERS[0];
+  return { ...t, id: 'm' + i, from, subject: i < BAG.length ? subject : subject + ' (again)', day: i < BAG.length ? day : day + Math.floor(i / BAG.length) * 3, read, resolved, kind: t.kind }; }).reverse();
+
+const TALK_REPLIES = { a1: 'Hello! I talk to the neighbours for us. Today they want bread.', a2: 'I am tired. My back hurts. But the windmill is almost done.' };
+// the game's half of the §14/§15 contract, faked: the camera glides to the sender (the backdrop pans), and the letter
+// opens in the inbox pane, top-right (openCompact is the old name; the anchor is ignored now)
+const glideTo = id => { const L = ui.letters.all.find(l => l.id === id); if (!L) return; frameSender(L.from.id); ui.letters.openCompact(L); };
+const ui = createUI({
+  onOpenLatest: L => { log('onOpenLatest', L && L.id); if (L) glideTo(L.id); },
+  onNotificationClick: (id, o) => { log('onNotificationClick', id, o && o.from); glideTo(id); },
+  onLetterRead: id => { log('onLetterRead', id); drawPins(); },
+  onNotificationDismiss: id => log('onNotificationDismiss', id),
+  getPortrait: id => portraitOf(id),
+  // mock mode: no model answers (an empty reply), so the folk use their own plain words (words.js plainReply)
+  onTalk: (id, text) => { log('onTalk', id, JSON.stringify(text)); return new Promise(r => setTimeout(() => r(''), 650)); },
+  letterVariant: q.get('letter') || 'a',
+  paintChrome: isLab,
+  hintIdleMs: +(q.get('idle') || 30000),
+  onCommand: (t, src) => { log('onCommand', JSON.stringify(t), src); ui.voiceBar.setState('thinking'); setTimeout(() => ui.voiceBar.setState('done'), 1600); },
+  onLetterOption: (id, says) => { log('onLetterOption', id, JSON.stringify(says)); setTimeout(() => ui.letters.markResolved(id), 500); },
+  onAgentAction: (id, what) => { log('onAgentAction', id, what); if (what === 'minister') { ui.ministerSeal.set(AGENTS.find(a => a.id === id)); ui.agentCard.hide(); } },
+  onStart: () => { log('onStart'); setTimeout(() => ui.onboarding.start(), 1300); },
+  onMic: on => { log('onMic', on); if (on) A.vspeak(); },
+  onOnboardingDone: r => log('onOnboardingDone', JSON.stringify(r)),
+  lookup: { agent: id => AGENTS.find(a => a.id === id), neighbour: id => NEIGHBOURS.find(n => n.id === id), anchor: id => folkScreen(id),
+    workplace: a => a.jobBuilding || null },   // like the game: the building's bare name ("Field"), next to the sim's "farmer at the Field"
+  font: q.get('font')                          // createUI reads ?font= itself too; the drawer switches it live (ui.setFont)
+});
+window.ui = ui; window.senderAnchor = id => senderAnchor(id);   // tests/ui/layout.mjs reads it
+// lab only: the unread letters' envelopes over their senders (the game's world layer does this)
+function drawPins() {
+  const el = document.getElementById('pins'); el.replaceChildren();
+  if (!q.has('pins') && !String(preset || '').startsWith('mail') && preset !== 'inbox-read') return;
+  const seen = new Set();
+  for (const L of ui.letters.all.filter(l => !l.read || l.id === ui.letters.compactId)) {
+    const id = L.from && L.from.id; if (seen.has(id)) continue; seen.add(id);
+    if (!senderScreen(id)) continue;
+    const pin = document.createElement('div'); pin.className = 'lab-pin'; pin.dataset.who = id;
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    pin.innerHTML = `<b>${esc(L.from.name)}</b><span class="m">${esc(L.subject || '')}</span>` + ((L.options || []).length ? `<span class="q">${L.options.slice(0, 3).map(o => `<span>${esc(o.label)}</span>`).join('')}</span>` : '');
+    pin.addEventListener('click', () => { log('world click', L.id); glideTo(L.id); });
+    el.append(pin);
+  }
+  posPins();
+}
+function posPins() { for (const pin of document.querySelectorAll('.lab-pin')) { const p = senderScreen(pin.dataset.who); if (p) { pin.style.left = p.x + 'px'; pin.style.top = (p.y - 10) + 'px'; } } }
+addEventListener('resize', () => drawPins());
+
+const baseState = () => {
+  ui.hud.set({ name: 'Cala Serena', stage: 'hamlet', day: 3, prosperity: 42, resources: { food: 38, wood: 24, stone: 17, coin: 12 } });
+  ui.neighbours.set(NEIGHBOURS);
+  ui.ministerSeal.set(AGENTS[0], { quiet: true });
+};
+const someLetters = () => ui.letters.setLetters([nextLetter(3), nextLetter(2), nextLetter(1), nextLetter(0)].map((l, i) => ({ ...l, read: i === 1 })));
+
+let nId = null, nP = 0;
+const FLEETS = [
+  { name: 'The Builders', counts: { flit: 4, floatie: 2 }, note: 'They raise every roof and wall in the plot.' },
+  { name: 'The Farmers', counts: { flit: 1, floatie: 2 }, note: 'Fields, orchards, and the first wheat.' },
+  { name: 'The Bakers', counts: { floatie: 2 }, note: 'Bread for everyone, every morning.' },
+  { name: 'The Scouts', counts: { flit: 2 }, note: 'They carry the letters and look over the hills.' },
+  { name: 'The Diplomats', counts: { flit: 1, floatie: 1 }, note: 'They speak with the neighbours.' }
+];
+let fleetI = 0;
+const showFleet = i => ui.fleet.caption({ ...FLEETS[i % FLEETS.length], index: (i % FLEETS.length) + 1, total: FLEETS.length });
+const cardAt = id => { const p = folkScreen(id); return p ? { x: p.x, y: p.y + 40 } : { x: innerWidth * 0.38, y: innerHeight * 0.4 }; };
+const STAGES = ['drafting plans', 'the builders sharpen their pencils', 'painting', 'raised'];
+let speaking = 0;
+const A = {
+  labclose: () => { lab.hidden = true; labOpen.hidden = false; },
+  title: () => ui.titleCard.show({ title: 'Agora' }),
+  ob: () => ui.onboarding.start(),
+  vidle: () => ui.voiceBar.setState('idle'), vlisten: () => ui.voiceBar.setState('listening'), vthink: () => ui.voiceBar.setState('thinking'), vdone: () => ui.voiceBar.setState('done'), verr: () => ui.voiceBar.setState('error'),
+  vspeak: () => {
+    const run = ++speaking;
+    const words = 'a lighthouse on the cliff with a red stripe'.split(' '); ui.voiceBar.setState('listening');
+    words.forEach((w, i) => setTimeout(() => { if (run !== speaking) return; ui.voiceBar.setLevel(Math.random()); ui.voiceBar.setCaption(words.slice(0, i + 1).join(' '), false); }, 220 * i));
+    setTimeout(() => { if (run !== speaking) return; ui.voiceBar.setCaption('A lighthouse on the cliff, with a red stripe', true); ui.voiceBar.setState('thinking'); }, 220 * words.length + 300);
+    setTimeout(() => { if (run !== speaking) return; ui.voiceBar.setState('done'); }, 220 * words.length + 2200);
+  },
+  vtype: () => ui.voiceBar.openTyping(),
+  vhint: () => ui.hint.show('', { says: 'A rubber duck in the lake', ttl: 0 }),
+  lnew: () => ui.letters.addLetter(nextLetter(0)), lnb: () => ui.letters.addLetter(nextLetter(1)), lmin: () => ui.letters.addLetter(nextLetter(2)),
+  lopen: () => { const a = ui.letters.all; if (a[0]) ui.letters.open(a[0].id); }, lnext: () => ui.letters.next(),
+  lres: () => ui.letters.openId && ui.letters.markResolved(ui.letters.openId),
+  lvar: () => { ui.letters.variant = ui.letters.variant === 'a' ? 'b' : 'a'; log('letter variant', ui.letters.variant); },
+  nministry: () => { nP = 0; nId = ui.notice('We have never built a lighthouse. Plans are being drawn.', { kind: 'ministry', progress: 0.12, stage: STAGES[0] }); },
+  nadv: () => { if (!nId) A.nministry(); nP = Math.min(1, nP + 0.3); const st = STAGES[Math.min(3, Math.floor(nP * 3.2))]; ui.updateNotice(nId, { progress: nP, stage: st }); if (nP >= 1) ui.updateNotice(nId, { text: 'The lighthouse stands on the cliff.', progress: 1, stage: 'raised', ttl: 4000 }); },
+  ninfo: () => ui.notice('Two pips arrived, carrying a very large turnip.'),
+  nnb: () => ui.notice('Little Lantern sends eight loaves down the road.', { kind: 'neighbour', from: 'Little Lantern', neighbourId: 'n2' }),
+  nmin: () => ui.notice('The granary is half empty. I suggest a farm by the river.', { kind: 'minister', from: 'Olla' }),
+  ledger: () => ui.ledger.toggle(),
+  card: () => ui.agentCard.show(AGENTS[1], { x: innerWidth * 0.38, y: innerHeight * 0.4 }),
+  talk: () => { ui.agentCard.show(AGENTS[0], cardAt('a1')); ui.talk.open('a1'); },
+  tsay: () => { const id = ui.talk.target || 'a1'; ui.talk.say('How are you today?', { agentId: id, source: 'voice' }); },
+  fan: () => ui.letters.fan(), gather: () => ui.letters.gather(),
+  mnote: () => { const L = nextLetter(0); ui.letters.addLetter(L); drawPins(); },
+  mnote3: () => mailNotes(), mcol: () => ui.notify.column.toggle(), mlatest: () => ui.letters.openLatest(),
+  mcompact: () => { const L = ui.letters.all.find(l => l.from.id === 'a1') || ui.letters.all[0]; if (L) glideTo(L.id); },
+  mnext: () => ui.letters._mail.compact.next(), mclose: () => ui.letters.closeCompact(), mseeall: () => ui.letters.seeAll(),
+  fleet: () => showFleet(fleetI++), fleetx: () => ui.fleet.hide(),
+  elect: () => ui.election.prompt(), hov: () => ui.election.hover(AGENTS[0]), elected: () => ui.election.elected(AGENTS[0]), electx: () => ui.election.end(),
+  mset: () => ui.ministerSeal.set(AGENTS[1]),
+  hud: () => ui.hud.set({ prosperity: 42 + Math.random() * 30, resources: { food: Math.round(30 + Math.random() * 20), wood: 24, stone: Math.round(10 + Math.random() * 20), coin: 12 } }),
+  off: (() => { let on = false; return () => ui.offlineNote(on = !on); })(),
+  meet: () => ui.meeting.show({ title: 'At the town centre, on the fifth day', report: 'Bread is good and the windmill turns. But Brusk and two puffers are worn out, and Grey Harbour grows cold toward us. I would rest the builders for a day and send the harbour a gift of bread.', options: [{ label: 'rest the builders', says: 'Let the builders rest for a day' }, { label: 'send the gift', says: 'Send bread to Grey Harbour' }, { label: 'carry on', says: 'Carry on as we are' }] }),
+  meetend: () => ui.meeting.hide(),
+  envoy: () => ui.decree.show({ id: 'l-envoy', kicker: 'By the three nations, together', title: 'Earth’s envoy', honour: 'Earth’s envoy',
+    body: 'Your little town outshines us all. We have agreed, for once, on one thing: you shall speak for Earth.\nThe Moon has been very quiet. Go and say hello.',
+    options: [{ label: 'let’s go to the moon', says: 'Let’s go to the moon' }, { label: 'not yet', says: 'Not yet, we are still building' }] }),
+  dir: () => ui.showDirectorCaption('You don’t click to build. *You speak.*', { kicker: 'I · The first word' }), dirx: () => ui.hideDirectorCaption()
+};
+const lab = document.getElementById('lab'), labOpen = document.getElementById('labOpen');
+lab.addEventListener('click', e => { const a = e.target.dataset.a; if (a && A[a]) A[a](); });
+labOpen.addEventListener('click', () => { lab.hidden = false; labOpen.hidden = true; });
+
+// ---------- presets for screenshots: ?state=... ----------
+const P = {
+  rest: () => { baseState(); someLetters(); },
+  speaking: () => { baseState(); someLetters(); ui.voiceBar.setState('listening'); ui.voiceBar.setLevel(.8); ui.voiceBar.setCaption('a lighthouse on the cliff with a red', false); },
+  typing: () => { baseState(); someLetters(); ui.voiceBar.openTyping(); ui.voiceBar.setValue('a windmill by the lake'); },
+  notice: () => { baseState(); someLetters(); ui.notice('Two pips arrived, carrying a very large turnip.', { ttl: 0 }); ui.notice('We have never built a lighthouse. Plans are being drawn.', { kind: 'ministry', progress: 0.46, stage: 'the builders sharpen their pencils' }); },
+  letter: () => { baseState(); someLetters(); setTimeout(() => ui.letters.open(ui.letters.all[0].id), 250); },
+  ledger: () => { baseState(); someLetters(); ui.offlineNote(true); ui.ledger.open(); },
+  card: () => { baseState(); someLetters(); ui.agentCard.show(AGENTS[1], { x: innerWidth * 0.38, y: innerHeight * 0.4 }); },
+  onboarding: () => {
+    ui.hud.set({ name: 'Cala Serena', stage: 'camp', day: 1, prosperity: 4, resources: { food: 40, wood: 30, stone: 20, coin: 10 } }); ui.neighbours.set(NEIGHBOURS);
+    if (q.get('step') === '2') { ui.onboarding.step(2); } else ui.onboarding.start();
+  },
+  hint: () => { baseState(); someLetters(); ui.voiceBar._used(); ui.hint.show('', { says: 'A rubber duck in the lake', ttl: 0 }); },
+  title: () => ui.titleCard.show({ title: 'Agora' }),
+  director: () => { baseState(); someLetters(); ui.cinema(true); A.dir(); ui.voiceBar.setCaption('Build a house in the middle', true, { holdMs: 0 }); },
+  meeting: () => { baseState(); A.meet(); },
+  envoy: () => { baseState(); A.envoy(); },
+  inbox: () => { baseState(); ui.ministerSeal.set(null, { quiet: true }); ui.letters.setLetters(bag(+(q.get('n') || 12))); setTimeout(() => ui.letters.fan(), 250); },
+  'inbox-1': () => { baseState(); ui.letters.setLetters(bag(1)); setTimeout(() => ui.letters.fan(), 250); },
+  'inbox-30': () => { baseState(); ui.letters.setLetters(bag(30)); setTimeout(() => ui.letters.fan(), 250); },
+  // §15: the inbox (top-right) expanded into the reading pane: Olla's letter, read where the list was
+  'inbox-read': async () => { baseState(); await mailBag(); mailHistory(); ui.notify.column.open(); const L = ui.letters.all.find(l => l.from.id === (q.get('who') || 'a1'));
+    if (q.has('long')) L.body = LONG_BODY;
+    if (q.has('cinema')) ui.cinema(true);   // the game's opening frame: the stack comes back with the inbox
+    setTimeout(() => document.querySelector(`.ag-mailcol__item[data-note="n:${L.id}"] .ag-mailcol__main`)?.click(), 300); },
+  // the pick prompt (an institution's members): a compact card at the top centre; in the lab a click near a folk on the
+  // backdrop picks / unpicks them (the game does this with its own picking), &n= how many are chosen at first
+  pick: () => { baseState(); someLetters(); pickState(+(q.get('n') ?? 2)); },
+  agentcard2: () => { baseState(); someLetters(); ui.agentCard.show(AGENTS[q.get('who') === 'a3' ? 2 : 0], cardAt(q.get('who') || 'a1')); },
+  talk: () => {
+    baseState(); someLetters();
+    ui.agentCard.show(AGENTS[0], cardAt('a1')); ui.talk.open('a1', { focus: false });
+    ui.talk.say('Hello Olla, what do you do?', { agentId: 'a1' });
+    setTimeout(() => ui.talk.reply('a1', TALK_REPLIES.a1), 300);
+  },
+  fleetcaption: () => { baseState(); ui.cinema(true); showFleet(0); },
+  election: () => { baseState(); ui.ministerSeal.set(null, { quiet: true }); ui.cinema(true); ui.election.prompt(); if (q.has('hover')) setTimeout(() => ui.election.hover(AGENTS[0]), 600); },
+  elected: () => { baseState(); ui.ministerSeal.set(null, { quiet: true }); ui.cinema(true); ui.election.elected(AGENTS[0], { ttl: 0 }); },
+  // ---- §14 mail ----
+  'mail-notify': async () => { baseState(); await mailBag(); setTimeout(mailNotes, 300); },
+  'mail-column': async () => { baseState(); await mailBag(); mailHistory(); ui.notify.column.open(); },
+  // the stack clicked: the camera glides to the sender, the letter opens in the inbox pane (the old name, kept)
+  'mail-compact': async () => { baseState(); await mailBag(); const L = ui.letters.all.find(l => l.from.id === (q.get('who') || 'a1'));
+    if (q.has('long')) L.body = LONG_BODY;
+    if (!q.has('still')) frameSender(L.from.id, false);
+    setTimeout(() => ui.letters.openCompact(L), 250); },
+  'mail-seeall': async () => { baseState(); await mailBag(); setTimeout(() => ui.letters.seeAll(), 250); }
+};
+// a post bag for the mail presets (portraits loaded first, so the shots show them)
+const MAIL_BAG = [
+  { id: 'm-olla', from: { kind: 'agent', id: 'a1', name: 'Olla' }, ...LETTERS[0], day: 5 },
+  { id: 'm-lantern', from: { kind: 'neighbour', id: 'n2', name: 'Little Lantern' }, ...LETTERS[1], day: 5 },
+  { id: 'm-builds', from: { kind: 'ministry', id: 'builds', name: 'Ministry of Builds' }, ...LETTERS[2], day: 4 },
+  { id: 'm-brusk', from: { kind: 'agent', id: 'a2', name: 'Brusk' }, ...LETTERS[3], day: 4 },
+  { id: 'm-vote', from: { kind: 'folk', id: 'folk', name: 'The folk' }, kind: 'election', subject: 'Pell is our minister now', day: 4,
+    body: 'Founder,\n\nWe held a vote by the windmill. Pell had the most pebbles, and Brusk had the loudest friends. Pell carries the seal from today.\n\n— The folk, counting pebbles' },
+  { id: 'm-mirabel', from: { kind: 'agent', id: 'a4', name: 'Mirabel' }, subject: 'A boat workshop, if you allow it', kind: 'petition', day: 3,
+    body: 'Dear founder,\n\nThe bay is full of fish and empty of boats. Let me build a little workshop on the sand.\n\nMirabel', options: [{ label: 'yes, build it', says: 'Yes Mirabel, build the boat workshop' }, { label: 'not now', says: 'Not now, Mirabel' }] },
+  { id: 'm-pell', from: { kind: 'agent', id: 'a3', name: 'Pell' }, subject: 'I saw smoke over the hills', kind: 'report', day: 3, read: true, body: 'Founder,\n\nSmoke, over the eastern hills. Maybe a camp. Maybe a big bread oven.\n\nPell' }
+];
+const LONG_BODY = LETTERS[0].body.replace('With flour', 'I have thought about it a great deal, walking between the fields and the windmill. The miller says the flour is the best he has ever ground, and it sits in sacks while everyone eats raw turnips. An oven needs stone, which Brusk has, and a chimney, which I can draw. A baker needs a morning, which I have every day.\n\nIf you say yes, the first loaf is yours, and the second is for Little Lantern, so they stop laughing at our crust.\n\nWith flour');
+async function mailBag() {
+  await Promise.all(['a1', 'a2', 'a3', 'a4'].map(id => portraitOf(id).then(src => src && ui.setPortrait(id, src))));
+  ui.letters.setLetters(MAIL_BAG.slice().reverse().map(l => ({ read: false, resolved: false, ...l })));
+  drawPins();
+}
+function mailNotes() {   // three notes, newest on top: a ministry notice, a neighbour's envoy, a folk's letter
+  ui.notify.letter('m-builds'); setTimeout(() => ui.notify.letter('m-lantern'), 140); setTimeout(() => ui.notify.letter('m-olla'), 280);
+}
+function mailHistory() {  // the column: a few minutes of post, some of it read
+  const now = Date.now(), at = m => now - m * 60000;
+  [['m-pell', 41], ['m-mirabel', 26], ['m-vote', 18], ['m-brusk', 12], ['m-builds', 7], ['m-lantern', 2], ['m-olla', 0.2]].forEach(([id, m]) => ui.notify.push({ letterId: id, at: at(m), toast: false }));
+  ui.letters.markRead('m-brusk'); ui.letters.markRead('m-builds');
+  drawPins();
+}
+let picked = [];
+function pickState(n) {
+  picked = AGENTS.slice(0, Math.max(0, Math.min(n, AGENTS.length))).map(a => a.id);
+  ui.pick.show({ title: 'Who joins the Police Patrol?', kicker: 'A new institution', hint: 'click folk, then Done', min: 1, max: 6,
+    onDone: ids => { log('pick done', ids.join(', ')); }, onCancel: () => log('pick cancelled'),
+    onRemove: id => { picked = picked.filter(x => x !== id); ui.pick.update(picked); } });
+  setTimeout(() => ui.pick.update(picked), 350);
+  if (q.has('hover')) setTimeout(() => ui.pick.hover(AGENTS[2]), 700);
+}
+// lab only: a click near a folk on the backdrop toggles them in the pick (the game's picking, faked)
+addEventListener('pointerdown', e => {
+  if (!ui.pick.active || e.target.closest('.ag-paper, .lab, .lab-open')) return;
+  const hit = AGENTS.find(a => { const p = folkScreen(a.id); return p && Math.hypot(p.x - e.clientX, p.y + 60 - e.clientY) < 90; });
+  if (!hit) return;
+  picked = picked.includes(hit.id) ? picked.filter(x => x !== hit.id) : [...picked, hit.id];
+  ui.pick.update(picked);
+});
+addEventListener('pointermove', e => {
+  if (!ui.pick.active) return;
+  const hit = AGENTS.find(a => { const p = folkScreen(a.id); return p && Math.hypot(p.x - e.clientX, p.y + 60 - e.clientY) < 90; });
+  ui.pick.hover(hit || null);
+});
+P.play = P.rest; P.voice = P.speaking; P.letters = P.letter; P.tray = P.letter; P.neighbours = P.ledger;
+// the typeface sets (web/fonts.html): switch the whole UI at once
+const fontsEl = document.getElementById('fonts');
+for (const [k, f] of Object.entries(FONT_SETS)) {
+  const b = document.createElement('button'); b.textContent = k === 'now' ? 'now (Instrument)' : `${k} · ${f.name}`; b.title = f.note;
+  b.addEventListener('click', () => { ui.setFont(k); log('font', k, f.name); }); fontsEl.append(b);
+}
+const presetsEl = document.getElementById('presets');
+for (const k of ['rest', 'speaking', 'typing', 'notice', 'letter', 'letter&letter=b', 'ledger', 'card', 'onboarding', 'onboarding&step=2', 'hint', 'title', 'director', 'meeting', 'envoy',
+  'inbox', 'inbox-1', 'inbox-30', 'inbox-read', 'inbox-read&long=1', 'agentcard2', 'agentcard2&who=a3', 'talk', 'fleetcaption', 'election', 'election&hover=1', 'elected', 'pick', 'pick&n=0', 'pick&n=4', 'inbox-read&who=builds', 'inbox-read&cinema=1',
+  'mail-notify', 'mail-column', 'mail-compact', 'mail-compact&long=1', 'mail-compact&bg=folk', 'mail-seeall'])
+  presetsEl.insertAdjacentHTML('beforeend', `<a href="?state=${k}${q.get('bg') ? '&bg=' + q.get('bg') : ''}${q.get('font') ? '&font=' + q.get('font') : ''}&lab=1">${k.replace('&letter=', ' ').replace('&step=', ' ').replace('&hover=1', ' hover')}</a>`);
+if (preset && P[preset]) P[preset](); else if (!preset) { baseState(); someLetters(); lab.hidden = false; }
+if (preset && isLab) labOpen.hidden = false;
+</script>
+</body>
+</html>

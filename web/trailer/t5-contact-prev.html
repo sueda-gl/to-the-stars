@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALOUD · t5 contact (previous)</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; object-fit: contain; background: #000; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="../worlds/vendor/three@0.147.0/build/three.min.js"></script>
+<script src="../worlds/vendor/three@0.147.0/examples/js/objects/Reflector.js"></script>
+<script type="module">
+  // t5 FIRST CONTACT (TRAILER.md). window.__shot = { duration, fps, seek(t), frame(n), play(), done }.
+  // ?t=12.5 renders that still; ?paused=1 waits on frame 0; otherwise it plays once and holds the last frame (click: replay).
+  import { runT5 } from '../js/trailer/t5-contact-prev.js';
+  const q = new URLSearchParams(location.search);
+  try {
+    const shot = await runT5({ canvas: document.getElementById('c') });
+    if (q.has('t')) shot.seek(parseFloat(q.get('t')));
+    else if (!q.has('paused')) shot.play();
+    addEventListener('click', () => shot.play());
+    window.__t5Ready = true;
+  } catch (e) { console.error(e); window.__t5Error = String(e && e.stack || e); }
+</script>
+</body>
+</html>

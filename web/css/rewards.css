@@ -1,0 +1,81 @@
+/* AGORA rewards (ART_DIRECTION §22 / §22b): the four-area tally under the settlement name, the "+n" paper stamps,
+   the painted tokens that fly into it, the milestone line and the level-up banner. js/ui/rewards.js links this file. */
+
+/* ---------- the tally: four painted icons + numbers, quiet at rest ---------- */
+.ag-rw { position: absolute; left: calc(var(--ag-gut, 16px) + 4px); top: calc(var(--ag-gut, 16px) + 34px); display: flex; align-items: center; gap: 14px;
+  padding: 2px 2px; pointer-events: none; isolation: isolate; opacity: .9; transition: opacity .6s;
+  font-family: var(--ag-font-text, Sentient, Georgia, serif); color: var(--ink, #2a2330); }
+.ag-rw::before { content: ""; position: absolute; inset: -12px -30px -16px -22px; z-index: -1; pointer-events: none; background: var(--ag-wash); opacity: .78; }
+.ag-rw.is-arriving { animation: ag-rw-in calc(.9s * var(--rw-slow, 1)) cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes ag-rw-in { from { opacity: 0; transform: translateY(-6px); filter: blur(3px); } }
+.ag-ui.is-ledger .ag-rw, .ag-ui.is-cinema .ag-rw, .ag-ui.is-meeting .ag-rw, .ag-ui.is-title .ag-rw { opacity: 0; }
+
+.ag-rw__slot { position: relative; display: flex; align-items: center; gap: 4px; height: 24px; }
+.ag-rw__icon { width: 24px; height: 24px; display: block; flex: none; filter: drop-shadow(0 1px 0 rgba(247, 241, 227, .9)) drop-shadow(0 0 4px rgba(247, 241, 227, .75)); }
+.ag-rw__num { font-size: 15px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums lining-nums; min-width: 1.1ch;
+  text-shadow: var(--ag-halo-strong); transition: color .5s; display: inline-block; }
+.ag-rw__level { font-family: var(--ag-font-display, Basteleur, Georgia, serif); font-style: normal; font-weight: 700; font-size: 14px; letter-spacing: .01em; }
+.ag-rw__bar { position: absolute; left: 29px; right: 0; bottom: -3px; height: 2px; border-radius: 2px; background: rgba(42, 35, 48, .16); overflow: hidden; }
+.ag-rw__bar::after { content: ""; position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(var(--p, 0)); background: var(--ink, #2a2330); border-radius: 2px;
+  transition: transform calc(.35s * var(--rw-slow, 1)) cubic-bezier(.2, .8, .2, 1); }
+.ag-rw__slot.is-gain .ag-rw__num { color: var(--slot-ink); }
+.ag-rw__slot--money { --slot-ink: #a2621c; } .ag-rw__slot--happiness { --slot-ink: #d0453a; } .ag-rw__slot--science { --slot-ink: #1f7c77; } .ag-rw__slot--civ { --slot-ink: #2a2330; }
+.ag-rw__ring { position: absolute; left: 12px; top: 12px; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid var(--ink); opacity: 0; animation: ag-rw-ring calc(.65s * var(--rw-slow, 1)) ease-out forwards; }
+@keyframes ag-rw-ring { 0% { transform: scale(.4); opacity: .7; } 100% { transform: scale(1.7); opacity: 0; } }
+
+/* the milestone: one elegant line under the tally that fades */
+.ag-rw__line { position: absolute; left: 0; top: calc(100% + 9px); white-space: nowrap; display: flex; align-items: center; gap: 6px;
+  font-family: var(--ag-font-display, Basteleur, Georgia, serif); font-style: normal; font-size: 15px; color: var(--ink, #2a2330);
+  text-shadow: var(--ag-halo-strong); opacity: 0; transform: translateY(-4px); pointer-events: none; }
+.ag-rw__line.is-on { animation: ag-rw-line calc(5.4s * var(--rw-slow, 1)) cubic-bezier(.2, .8, .2, 1) forwards; }
+.ag-rw__lineicon { width: 16px; height: 16px; }
+@keyframes ag-rw-line { 0% { opacity: 0; transform: translateY(-4px); filter: blur(3px); letter-spacing: .06em; } 12% { opacity: 1; transform: none; filter: blur(0); letter-spacing: 0; }
+  80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(2px); filter: blur(2px); } }
+
+/* ---------- the flying layer ---------- */
+.ag-rw-fx { position: fixed; inset: 0; z-index: 36; color: var(--ink, #2a2330); pointer-events: none; overflow: hidden; contain: strict; }
+.ag-rw-fx__tokens, .ag-rw-fx__stamps { position: absolute; inset: 0; }
+
+/* the "+n" paper stamp over the new thing */
+.ag-rw-stamp { position: absolute; left: 0; top: 0; will-change: transform; }
+.ag-rw-stamp__paper { position: absolute; left: 0; top: 0; translate: -50% -50%; display: flex; align-items: center; gap: 4px; padding: 6px 11px 6px 7px;
+  border-radius: 7px 11px 6px 12px / 10px 6px 11px 7px; background-color: #f6efdd; background-image: var(--ag-noise), radial-gradient(120% 120% at 30% 20%, rgba(255, 252, 240, .9), rgba(232, 220, 192, .0) 60%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 -2px 4px rgba(150, 110, 60, .14) inset, 0 3px 0 -1px rgba(120, 88, 50, .18), 0 6px 14px -4px rgba(60, 40, 20, .32);
+  transform-origin: 50% 100%; white-space: nowrap; }
+.ag-rw-stamp__paper::after { content: ""; position: absolute; inset: 3px; border-radius: 5px 8px 4px 9px; border: 1.4px dashed var(--ink); opacity: .45; pointer-events: none;
+  -webkit-mask: var(--ag-dropout); mask: var(--ag-dropout); }
+.ag-rw-stamp__icon { width: 26px; height: 26px; display: block; }
+.ag-rw-stamp__n { font-family: var(--ag-font-display, Basteleur, Georgia, serif); font-weight: 700; font-style: normal; font-size: 23px; line-height: 1; letter-spacing: .01em;
+  color: transparent; background: var(--ag-dropout), var(--ink); -webkit-background-clip: text; background-clip: text; padding: .06em .05em .12em; }
+.ag-rw-stamp__dust { position: absolute; left: 0; top: 0; width: 86px; height: 86px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(closest-side, transparent 52%, rgba(247, 241, 227, .9) 58%, rgba(247, 241, 227, .0) 78%), radial-gradient(closest-side, transparent 40%, color-mix(in srgb, var(--ink) 35%, transparent) 52%, transparent 62%); }
+
+/* a painted token */
+.ag-rw-token { position: absolute; left: 0; top: 0; width: 30px; height: 30px; will-change: transform, opacity; opacity: 0;
+  filter: drop-shadow(0 2px 2px rgba(60, 40, 20, .28)); }
+.ag-rw-token--confetti { width: 32px; height: 32px; }
+.ag-rw-token--ghost { filter: blur(.6px); }
+
+/* ---------- level up: the banner ---------- */
+.ag-rw-level { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; transform-origin: 50% 50%; }
+.ag-rw-level__kick { font-family: var(--ag-font-text, Sentient, Georgia, serif); font-style: normal; font-size: 16px; color: var(--ink, #2a2330); text-shadow: var(--ag-halo-strong); }
+.ag-rw-level__icon { width: 88px; height: 88px; margin-bottom: -22px; margin-left: -10px; position: relative; z-index: 1; transform-origin: 50% 100%;
+  filter: drop-shadow(0 0 10px rgba(247, 241, 227, .9)) drop-shadow(0 3px 3px rgba(40, 30, 20, .25)); }
+.ag-rw-level__banner { position: relative; padding: 13px 54px 17px; transform-origin: 50% 50%; border-radius: 3px 3px 4px 4px;
+  background-color: #2a2330; background-image: var(--ag-noise), radial-gradient(120% 160% at 30% 0%, rgba(150, 175, 228, .5), transparent 55%), linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(0, 0, 0, .16));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 -3px 0 rgba(0, 0, 0, .12) inset, 0 12px 22px -8px rgba(20, 24, 50, .45); }
+.ag-rw-level__banner::before { content: ""; position: absolute; inset: 5px 8px; border: 1.3px dashed rgba(243, 227, 189, .6); border-radius: 2px; pointer-events: none; }
+/* the swallowtail ends, folded behind */
+.ag-rw-level__tail { position: absolute; top: 14px; bottom: -12px; width: 46px; z-index: -1; background-color: #2a3d68; background-image: var(--ag-noise);
+  box-shadow: 0 8px 14px -6px rgba(20, 24, 50, .4); }
+.ag-rw-level__tail--l { left: -38px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 34% 50%); }
+.ag-rw-level__tail--r { right: -38px; clip-path: polygon(0 0, 100% 0, 66% 50%, 100% 100%, 0 100%); }
+.ag-rw-level__tail::after { content: ""; position: absolute; top: 0; width: 10px; height: 12px; background: #1c2a4c; }
+.ag-rw-level__tail--l::after { right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.ag-rw-level__tail--r::after { left: 0; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.ag-rw-level__word { position: relative; font-family: var(--ag-font-display, Basteleur, Georgia, serif); font-style: normal; font-weight: 700; font-size: 50px; line-height: 1;
+  color: #f3e3bd; letter-spacing: .01em; text-shadow: 0 2px 0 rgba(20, 28, 60, .35); }
+.ag-rw-level__kick { margin-top: 10px; font-size: 18px; font-weight: 500; padding: 1px 10px; border-radius: 4px; background: rgba(246, 240, 225, .82); }
+
+@media (prefers-reduced-motion: reduce) { .ag-rw.is-arriving, .ag-rw__line.is-on { animation-duration: .01s; } }

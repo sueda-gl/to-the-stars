@@ -1,0 +1,15 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--use-angle=metal'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('pageerror', e => console.log('[pageerror]', e.message)); p.on('console', m => { if (/planet-look|error/i.test(m.text())) console.log('[c]', m.text().slice(0, 200)); });
+await p.goto('http://localhost:8870/?intro=none&autostart=1&opening=none', { waitUntil: 'load' });
+await p.waitForFunction('window.__planetLook', { timeout: 90000 });
+await new Promise(r => setTimeout(r, 4000));
+await p.keyboard.press('Escape'); await new Promise(r => setTimeout(r, 500));
+await p.mouse.click(900, 600); await p.keyboard.press('g'); await new Promise(r => setTimeout(r, 800));
+console.log('open:', await p.evaluate(() => !document.querySelector('.pl-lab').hidden));
+await p.screenshot({ path: 'shots/lab-open.png' });
+await p.evaluate(() => { const i = document.querySelector('[data-g=gouache][data-k=brush]'); i.value = 7; i.dispatchEvent(new Event('input', { bubbles: true })); const f = document.querySelector('[data-g=style][data-k=fish]'); f.value = 0; f.dispatchEvent(new Event('input', { bubbles: true })); });
+await new Promise(r => setTimeout(r, 1500)); await p.screenshot({ path: 'shots/lab-changed.png' });
+console.log('current', JSON.stringify(await p.evaluate(() => window.__planetLook.current())));
+await b.close();

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agora — type specimens</title>
+<link href="https://api.fontshare.com/v2/css?f[]=boska@400,500,700,400i,500i&f[]=zodiak@400,700,400i&f[]=gambetta@400,500,600,400i&f[]=erode@400,500,600,400i&f[]=sentient@400,500,400i&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+  @font-face { font-family: Basteleur; src: url(assets/fonts/Basteleur-Moonlight.woff2) format('woff2'); font-weight: 400; }
+  @font-face { font-family: Basteleur; src: url(assets/fonts/Basteleur-Bold.woff2) format('woff2'); font-weight: 700; }
+  @font-face { font-family: Compagnon; src: url(assets/fonts/Compagnon-Roman.woff2) format('woff2'); font-weight: 400; }
+  @font-face { font-family: Compagnon; src: url(assets/fonts/Compagnon-Medium.woff2) format('woff2'); font-weight: 500; }
+  @font-face { font-family: Compagnon; src: url(assets/fonts/Compagnon-Italic.woff2) format('woff2'); font-style: italic; }
+  :root { --paper: #f3ecdc; --ink: #3d5588; --red: #e0503f; }
+  body { margin: 0; background: #e9e0cc; color: var(--ink); font-family: Georgia, serif; }
+  header { max-width: 1400px; margin: 0 auto; padding: 36px 20px 8px; font-family: Compagnon, Georgia, serif; }
+  header h1 { margin: 0; font-weight: 400; font-size: 30px; }
+  header p { margin: 6px 0 0; opacity: .7; font-size: 15px; max-width: 760px; line-height: 1.5; }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px 20px 80px; display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 22px; }
+  .spec { border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1px rgba(61,85,136,.18), 0 10px 30px rgba(40,20,10,.08);
+    background: url(assets/backdrop-reference.png) center/cover; position: relative; }
+  .spec .veil { background: color-mix(in srgb, var(--paper) 30%, transparent); padding: 18px 18px 20px; display: grid; gap: 12px; }
+  .label { font-family: Compagnon, monospace; font-size: 12px; letter-spacing: .06em; background: var(--paper); padding: 8px 18px; display: flex; justify-content: space-between; }
+  .label b { font-weight: 500; letter-spacing: 0; font-size: 14px; }
+  .title { font-size: 74px; line-height: .95; text-align: center; color: var(--ink); text-shadow: 0 0 22px rgba(243,236,220,.85); margin: 6px 0 0; }
+  .sub { text-align: center; font-style: italic; font-size: 19px; text-shadow: 0 0 14px rgba(243,236,220,.95); margin: -2px 0 6px; }
+  .tag { justify-self: start; background: var(--paper); border-radius: 6px; padding: 6px 9px 7px; box-shadow: 0 2px 8px rgba(40,20,10,.15); max-width: 230px; }
+  .tag .n { font-size: 14px; font-weight: 600; } .tag .m { font-size: 13px; margin: 2px 0 4px; line-height: 1.25; }
+  .tag .q { font-size: 12px; font-style: italic; display: flex; gap: 8px; } .tag .q span { border-bottom: 1px solid rgba(61,85,136,.4); }
+  .row { background: var(--paper); border-radius: 8px; padding: 9px 12px; display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; }
+  .face { width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #b6e27a, #6fb35a 60%, #3f7a58); box-shadow: inset 0 -6px 0 #2f62d8; }
+  .row .who { font-size: 16px; } .row .who i { opacity: .6; font-size: 14px; } .row .s { font-style: italic; font-size: 15px; } .row .t { font-size: 12px; opacity: .55; font-style: italic; }
+  .letter { background: var(--paper); border-radius: 4px; padding: 16px 18px; }
+  .letter h3 { margin: 0 0 6px; font-weight: 400; font-style: italic; font-size: 24px; }
+  .letter p { margin: 0 0 8px; font-size: 16px; line-height: 1.5; }
+  .letter .sig { text-align: right; font-style: italic; font-size: 20px; margin: 0; }
+  .cap { text-align: center; font-style: italic; font-size: 30px; text-shadow: 0 0 16px rgba(243,236,220,.95), 0 1px 0 rgba(243,236,220,.9); }
+  .fleet { display: flex; align-items: baseline; gap: 12px; text-shadow: 0 0 14px rgba(243,236,220,.95); }
+  .fleet .k { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: var(--red); }
+  .fleet .f { font-size: 38px; font-style: italic; } .fleet .c { font-size: 16px; font-style: italic; }
+  .ui { display: flex; gap: 10px; flex-wrap: wrap; } .pill { background: var(--paper); border-radius: 999px; padding: 6px 14px 7px; font-size: 16px; box-shadow: 0 0 0 1px rgba(61,85,136,.22); }
+  .pill.on { background: var(--ink); color: var(--paper); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Agora — choose the game's typeface</h1>
+  <p>Each panel sets the real UI pieces (title, caption, fleet card, letter tag, inbox row, opened letter, buttons) in one candidate, over your Red arch painting. The first panel is the current font, for comparison. All candidates are free for commercial use (Velvetyne: SIL Open Font License · Fontshare / Indian Type Foundry: ITF Free Font License).</p>
+</header>
+<main id="m"></main>
+<script>
+const SETS = [
+  { id: 'current', name: 'Instrument Serif', note: 'the current font (the stock AI-site serif)', d: '"Instrument Serif"', t: '"Instrument Serif"' },
+  { id: 'A', name: 'Basteleur + Compagnon', note: 'Velvetyne · a moonlit display serif with hand-cut quirks, and an editorial typewriter-ish text face', d: 'Basteleur', t: 'Compagnon' },
+  { id: 'B', name: 'Boska', note: 'Fontshare · sharp high-contrast serif with a calligraphic italic, playful but premium', d: 'Boska', t: 'Boska' },
+  { id: 'C', name: 'Zodiak', note: 'Fontshare · a Didone with bite: crisp, fashion-editorial, theatrical italics', d: 'Zodiak', t: 'Zodiak' },
+  { id: 'D', name: 'Gambetta', note: 'Fontshare · warm bookish serif, soft and very legible at small sizes', d: 'Gambetta', t: 'Gambetta' },
+  { id: 'E', name: 'Erode', note: 'Fontshare · a rounder, friendlier serif; gentle storybook warmth', d: 'Erode', t: 'Erode' },
+  { id: 'F', name: 'Young Serif + Compagnon', note: 'the font from your Plissé file for display, with Compagnon for text (ties Act 3 to Earth)', d: '"Young Serif"', t: 'Compagnon' },
+  { id: 'G', name: 'Basteleur + Sentient', note: 'Velvetyne display with Fontshare Sentient text: same moonlit titles, a softer reading face', d: 'Basteleur', t: 'Sentient' },
+];
+const m = document.getElementById('m');
+for (const s of SETS) {
+  const el = document.createElement('section'); el.className = 'spec'; el.id = s.id;
+  const D = `font-family:${s.d}, Georgia, serif`, T = `font-family:${s.t}, Georgia, serif`;
+  el.innerHTML = `<div class="label"><b style="${T}">${s.id === 'current' ? 'now' : s.id} · ${s.name}</b><span>${s.note}</span></div>
+  <div class="veil">
+    <div class="title" style="${D}">Agora</div>
+    <div class="sub" style="${T}">a civilisation you speak into being</div>
+    <div class="cap" style="${T}">“a lighthouse on the cliff”</div>
+    <div class="fleet" style="${T}"><span class="k">fleet one of five</span><span class="f" style="${D}">The Builders</span><span class="c">two flits · two floaties</span></div>
+    <div class="tag" style="${T}"><div class="n">Pippo</div><div class="m">The nights are cold. Somewhere to sleep?</div><div class="q"><span>build a house</span><span>not now</span></div></div>
+    <div class="row" style="${T}"><div class="face"></div><div><div class="who">Olla <i>sent a letter</i></div><div class="s">“On the matter of bread”</div></div><div class="t">just now</div></div>
+    <div class="letter" style="${T}"><h3 style="${D}">On the matter of bread</h3><p>The windmill turns all day and nobody bakes. Give me an oven near the windmill, and by the next morning the whole plot will smell of crust.</p><p class="sig" style="${D}">Olla</p></div>
+    <div class="ui" style="${T}"><span class="pill on">Talk</span><span class="pill">Make minister</span><span class="pill">hold Space</span></div>
+  </div>`;
+  m.append(el);
+}
+</script>
+</body>
+</html>

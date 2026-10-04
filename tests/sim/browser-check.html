@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><title>sim browser check</title>
+<pre id="out">loading…</pre>
+<script type="module">
+  import { createGame } from '../../web/js/sim/index.js';
+  const out = document.getElementById('out');
+  try {
+    const g = createGame({ seed: 7 });
+    let hauls = 0; g.on('agent:task', p => { if (p.task.carrying === 'crate') hauls++; });
+    g.apply({ type: 'build', kind: 'house', at: { mode: 'center' } });
+    for (let i = 0; i < 1200; i++) g.tick(0.1);
+    out.textContent = `SIM_OK house=${g.state.buildings[0].status} hauls=${hauls} letters=${g.state.letters.length} snapshot=${JSON.stringify(g.snapshot()).length}`;
+  } catch (e) { out.textContent = 'SIM_FAIL ' + e.stack; }
+</script>

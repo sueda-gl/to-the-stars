@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aloud</title>
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/paint.css">
+<link rel="stylesheet" href="css/agora.css">
+<link rel="stylesheet" href="css/aloud.css">  <!-- ART_DIRECTION §24: Montserrat, the new palette, the onboarding panel, the mailbox, the red dots -->
+<style>
+  /* the game on Sueda's Tower Planet (ART_DIRECTION §12): her canvas rule, her space behind it; Plissé (act 3) is an
+     iframe over it; the crossfade veil sits under the UI (z 10) */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; }
+  canvas.ag-planet { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; z-index: 1; }
+  /* home (ART_DIRECTION §21): the old seaside map's own canvas, under hers; the landing cross-fades her canvas out over it */
+  canvas.ag-sea { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; z-index: 0; }
+  iframe.ag-stage-moon { position: fixed; inset: 0; width: 100vw; height: 100vh; border: 0; background: transparent; z-index: 6; opacity: 0; pointer-events: none;
+    transition: opacity 1.6s ease; }
+  iframe.ag-stage-moon.is-on { opacity: 1; pointer-events: auto; }
+  body.ag-aloft .agb-layer { visibility: hidden !important; }
+  .ag-veil { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0; background: #f3ecdc; transition: opacity .7s ease; }
+  .ag-veil.is-on { opacity: 1; }
+  .ag-cursor { position: fixed; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; z-index: 40; pointer-events: none;
+    background: rgba(224,80,63,.85); box-shadow: 0 0 0 3px rgba(243,236,220,.9), 0 0 0 4px rgba(61,85,136,.35); opacity: 0; transition: opacity .4s, left .9s cubic-bezier(.2,.8,.2,1), top .9s cubic-bezier(.2,.8,.2,1); }
+  .ag-cursor.is-on { opacity: 1; }
+  .ag-boot { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #05060d; color: #f3ecdc; font-family: var(--ag-font-text, Montserrat, sans-serif);
+    font-weight: 500; letter-spacing: .02em; font-size: 17px; transition: opacity .8s; pointer-events: none; }
+  .ag-boot.is-off { opacity: 0; }
+  /* the title card over her dark orbit: a lighter paper wash than over the old cream map, so the planet reads */
+  .ag-title__wash { background-color: rgba(243, 236, 220, .12); background-image: var(--ag-noise), radial-gradient(60% 56% at 50% 48%, rgba(243, 236, 220, .78) 22%, rgba(243, 236, 220, 0) 100%); }
+  body.ag-no-paint-chrome :is(.editions, .closeup, .closeup-btn, .tweaks-toggle, .tweaks) { display: none !important; }
+  /* the opening's quiet skip link (bottom-right, clear of the voice mark and the fleet caption) */
+  .ag-skip { position: fixed; right: 22px; bottom: 18px; z-index: 12; font-size: 15px; font-style: italic; color: var(--paper, #f3ecdc); opacity: .78;
+    text-decoration: underline; text-decoration-color: rgba(243,236,220,.4); text-underline-offset: 3px; animation: ag-skip-in .8s ease both; text-shadow: 0 0 6px rgba(5,6,13,.5); }
+  .ag-skip:hover, .ag-skip.is-hint { opacity: 1; text-decoration-color: var(--red, #e0503f); }
+  .ag-skip.is-hint { color: var(--red, #e0503f); text-decoration: none; }
+  @keyframes ag-skip-in { from { opacity: 0; transform: translateY(4px); } }
+</style>
+</head>
+<body>
+<div class="ag-boot" id="boot">the planet is being painted…</div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module" src="js/game.js"></script>
+<script type="module" src="js/lab/planet-look.js"></script>
+</body>
+</html>

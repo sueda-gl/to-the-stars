@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plissé lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  /* lab chrome in the game's paper tokens: paper, ink, Instrument Serif, pill buttons with a 1px ink ring */
+  :root { --paper: #f3ecdc; --ink: #3d5588; --red: #e0503f; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #plisse { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 30; background: #121834;
+    opacity: 0; pointer-events: none; transform-origin: 50% 50%; }
+  #plisse.on { pointer-events: auto; }
+  .lab { position: fixed; top: 14px; left: 14px; z-index: 60; width: 256px; padding: 12px 12px 10px; border-radius: 14px;
+    background: rgba(243, 236, 220, 0.9); box-shadow: 0 0 0 1px rgba(61, 85, 136, 0.35); backdrop-filter: blur(6px);
+    font-family: "Instrument Serif", Georgia, serif; color: var(--ink); }
+  .lab h1 { margin: 0 0 2px; font-weight: 400; font-style: italic; font-size: 24px; }
+  .lab .st { font-size: 14px; margin-bottom: 8px; opacity: .8; min-height: 2.4em; }
+  .lab .row { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0; }
+  .lab .lbl { width: 100%; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .6; margin-top: 4px; }
+  .lab button { font: inherit; font-size: 15px; color: var(--ink); background: var(--paper); border: 0; border-radius: 999px;
+    padding: 4px 11px; box-shadow: 0 0 0 1px var(--ink); cursor: pointer; }
+  .lab button:hover { background: #fff8ea; }
+  .lab button:disabled { opacity: .4; cursor: default; }
+  .lab button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .lab button.go { background: var(--red); color: var(--paper); box-shadow: 0 0 0 1px var(--red); }
+  .lab input[type=range] { width: 100%; accent-color: var(--ink); }
+  .lab .min { position: absolute; top: 10px; right: 12px; padding: 0 8px; font-size: 14px; }
+  .lab.folded > :not(h1):not(.min) { display: none; }
+  .ptt { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 60; font: italic 15px "Instrument Serif", Georgia, serif;
+    color: rgba(243, 236, 220, .75); pointer-events: none; transition: color .2s; }
+  .ptt.held { color: #e0503f; }
+  body.shot .lab, body.shot .ptt { display: none; }
+</style>
+</head>
+<body>
+<!-- Plissé lab: the Tower Planet's orbit (web/js/planet) with the stand-in Plissé in its sky (web/js/planet/plisse-standin.js),
+     the flight to it, the cross-fade into the original (web/worlds/plisse.html, byte-identical, driven only from outside by
+     web/js/voyage/plisse-driver.js), and back. ?s=0.5 freezes the flight at s; ?fade=0.5 holds a cross-fade; ?spin=1 lets
+     the orbit spin; ?shot=1 hides the lab chrome. window.__lab for tests. -->
+<div class="lab" id="lab">
+  <h1>Plissé lab</h1><button class="min" id="fold" title="Fold">&ndash;</button>
+  <div class="st" id="st">building the Tower Planet…</div>
+  <div class="row"><span class="lbl">Voyage</span>
+    <button class="go" id="travel">Travel to Plissé</button><button id="return" disabled>Return</button></div>
+  <div class="row"><span class="lbl">In Plissé (driver)</span>
+    <button id="lookL">Look &larr;</button><button id="lookR">Look &rarr;</button><button id="lookU">&uarr;</button><button id="lookD">&darr;</button>
+    <button id="zoomIn">Closer</button><button id="zoomOut">Farther</button><button id="lookH">Opening view</button>
+    <button id="chrome" aria-pressed="true">Hide its chrome</button><button id="painted" aria-pressed="true">Her gouache</button></div>
+  <div class="row"><span class="lbl">Earth's space</span>
+    <button id="spin" aria-pressed="false">Orbit spin</button><button id="compose">Recompose</button>
+    <button id="toon" aria-pressed="true">Toon bands</button><button id="lens" aria-pressed="true">Lens match</button></div>
+  <div class="row"><span class="lbl">Flight still (s)</span>
+    <input type="range" id="ss" min="0" max="1" step="0.01" value="0">
+    <button id="stillOn">Hold s</button><button id="stillOff">Live</button></div>
+</div>
+<div class="ptt" id="ptt">hold Space</div>
+
+<script src="vendor/three.min.js"></script>
+<script type="module">
+import { createPlanet } from './js/planet/planet.js';
+import { createPlisseStandin } from './js/planet/plisse-standin.js';
+import { createPlisseDriver, registerPlisseOffline } from './js/voyage/plisse-driver.js';
+
+const Q = new URLSearchParams(location.search);
+const $ = id => document.getElementById(id);
+const st = $('st');
+const SRC = 'worlds/plisse.html';
+if (Q.get('shot') === '1') document.body.classList.add('shot');
+const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+const offline = registerPlisseOffline(SRC, (...a) => console.log(...a));
+
+// ---------- the Tower Planet (her look, untouched), our own loop so the camera is set before each frame ----------
+const planet = createPlanet({ autoStart: false, fail: m => { st.textContent = m; } });
+window.__planet = planet;
+const RP = planet.terrain.RP, ORBIT_TARGET = new THREE.Vector3(0, RP * 0.16, 0);
+let spin = Q.get('spin') === '1';
+planet.orbitSpin(spin);
+planet.setOrbit({ az: 0.12 });
+$('spin').setAttribute('aria-pressed', String(spin));
+
+// ---------- the stand-in, composed in the sky of the opening orbit view ----------
+const standin = createPlisseStandin(planet, { radius: 86 });
+function orbitPose() {
+  const o = planet.state().orbit;
+  const position = new THREE.Vector3(Math.cos(o.el) * Math.sin(o.az), Math.sin(o.el), Math.cos(o.el) * Math.cos(o.az)).multiplyScalar(o.dist).add(ORBIT_TARGET);
+  return { position, look: ORBIT_TARGET.clone(), up: new THREE.Vector3(0, 1, 0), fov: 40 };
+}
+// upper right of the orbit view, clear of the globe, its clouds and the tower (portrait: higher, over the tower's right)
+const SKY_SPOT = () => innerWidth / innerHeight < 1 ? { screen: [0.74, 0.13], dist: 2400 } : { screen: [0.77, 0.25], dist: 2400 };
+function compose() {
+  const p = orbitPose(), cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.8, 9000);
+  cam.position.copy(p.position); cam.up.copy(p.up); cam.lookAt(p.look); cam.updateProjectionMatrix();
+  return standin.composeFor(cam, SKY_SPOT());
+}
+compose();
+
+// ---------- the voyage ----------
+let state = 'earth', iframe = null, driver = null, path = null, t0 = 0, flightMs = 8200, fadeMs = 1700, fadeStart = 1;   // the fade starts once the camera has come to rest on her framing
+let fadeT0 = -1, fade = 0, hold = Q.has('s') ? +Q.get('s') : null, fadeHold = Q.has('fade') ? +Q.get('fade') : null, lockPose = null, landedAt = 0;
+let chromeHidden = true;
+const say = t => { st.textContent = t; };
+
+function mountIframe() {
+  if (iframe) return;
+  iframe = document.createElement('iframe');
+  iframe.id = 'plisse'; iframe.title = 'Plissé — the lantern planet'; iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+  driver = createPlisseDriver(iframe, { log: (...a) => console.log('[plisse]', ...a) });
+  window.__lab.driver = driver;
+  offline.then(() => { iframe.src = SRC; });
+  driver.ready().then(() => {
+    if (chromeHidden) driver.hideOwnChrome(true);
+    standin.syncClock(() => driver.sceneTime(), { ms: 2000 });
+  }).catch(e => say(e.message));
+}
+function unmountIframe() {
+  if (!iframe) return;
+  iframe.remove(); iframe = null; driver = null; window.__lab.driver = null;
+  standin.syncClock(null);
+}
+// Lens match: her Grain finish has a fisheye (uFish .38) and plisse.html has none, so a frame-filling Plissé can't line up
+// through it (the moons would land ~40 px further out). While Plissé fills the view the lens relaxes to flat, and it
+// comes back as we leave. Everything else of her look is untouched. (Toggle: "Lens match".)
+const FISH = planet.post.post.uniforms.uFish, FISH0 = FISH.value;
+let lensMatch = Q.get('lens') !== '0';
+const setLens = k => { FISH.value = FISH0 * (1 - (lensMatch ? k : 0)); };
+const matched = () => standin.arrivalPose(driver && driver.isReady() ? driver.cameraNow() : null, { fish: FISH.value });
+function travel() {
+  if (state !== 'earth') return;
+  mountIframe();
+
+  path = standin.flight({ from: orbitPose(), to: matched });
+  state = 'flying'; t0 = performance.now(); fadeT0 = -1; fade = 0;
+  say('flying to Plissé…');
+  $('travel').disabled = true;
+}
+function returnHome() {
+  if (state !== 'plisse' && state !== 'arriving') return;
+  lockPose = matched();
+  state = 'leaving'; fadeT0 = performance.now();
+  iframe.classList.remove('on');
+  say('leaving Plissé…');
+  $('return').disabled = true;
+}
+
+function setFade(v) {
+  fade = v;
+  if (iframe) iframe.style.opacity = String(v);
+}
+
+// ---------- the loop ----------
+function loop(now) {
+  requestAnimationFrame(loop);
+  let render = state !== 'plisse';
+  if (state === 'flying' || state === 'arriving') {
+    let s = hold != null ? hold : Math.min(1, (now - t0) / flightMs);
+    setLens(smooth(0.55, 0.92, s));
+    const pose = path.at(s);
+    planet.cameraFree({ position: pose.position, look: pose.look, up: pose.up, fov: 40, snap: true });
+    if (fadeHold != null) { setFade(fadeHold); }
+    else if (hold == null) {
+      const settled = driver && driver.isSettled();
+      if (fadeT0 < 0 && s >= fadeStart && settled) { fadeT0 = now; state = 'arriving'; say('arriving: the cross-fade'); }
+      if (fadeT0 < 0 && s >= 1 && !settled) say('holding: Plissé is lighting its lanterns…');
+      if (fadeT0 >= 0) {
+        const v = smooth(0, 1, (now - fadeT0) / fadeMs);
+        setFade(v);   // her iframe is only ever faded, never scaled or filtered
+        if (v >= 1 && s >= 1) {
+          state = 'plisse'; landedAt = now; setFade(1); iframe.classList.add('on');
+          $('return').disabled = false; say('on Plissé — the original, driven from outside');
+        }
+      }
+    }
+  } else if (state === 'leaving') {
+    const pose = matched();
+    planet.cameraFree({ position: pose.position, look: pose.look, up: pose.up, fov: 40, snap: true });
+    const v = 1 - smooth(0, 1, (now - fadeT0) / 1300);
+    setFade(v);
+    if (v <= 0) {
+      path = standin.flight({ from: orbitPose(), to: lockPose });
+      state = 'returning'; t0 = now; unmountIframe();
+      say('home to the Tower Planet…');
+    }
+  } else if (state === 'returning') {
+    const s = 1 - Math.min(1, (now - t0) / (flightMs * 0.85));
+    setLens(smooth(0.55, 0.92, s));
+    const pose = path.at(s);
+    planet.cameraFree({ position: pose.position, look: pose.look, up: pose.up, fov: 40, snap: true });
+    if (s <= 0) { planet.orbit(); state = 'earth'; $('travel').disabled = false; say('Earth orbit · Plissé in the sky, upper right'); }
+  }
+  if (render) planet.frame(now);
+}
+planet.ready.then(() => say('Earth orbit · Plissé in the sky, upper right'));
+requestAnimationFrame(t => { planet.frame(t); requestAnimationFrame(loop); });
+
+// ---------- lab controls ----------
+$('travel').onclick = travel;
+$('return').onclick = returnHome;
+const D = fn => () => { if (driver && driver.isReady()) fn(driver); };
+$('lookL').onclick = D(d => d.look(160, 0));
+$('lookR').onclick = D(d => d.look(-160, 0));
+$('lookU').onclick = D(d => d.look(0, 90));
+$('lookD').onclick = D(d => d.look(0, -90));
+$('zoomIn').onclick = D(d => d.zoom(0.8));
+$('zoomOut').onclick = D(d => d.zoom(1.25));
+$('lookH').onclick = D(d => d.lookHome());
+$('chrome').onclick = () => { chromeHidden = !chromeHidden; $('chrome').setAttribute('aria-pressed', String(chromeHidden)); if (driver && driver.isReady()) driver.hideOwnChrome(chromeHidden); };
+$('painted').onclick = D(async d => { const on = await d.setPainted(!d.state().painted); $('painted').setAttribute('aria-pressed', String(on)); });
+$('spin').onclick = () => { spin = !spin; planet.orbitSpin(spin); $('spin').setAttribute('aria-pressed', String(spin)); };
+$('compose').onclick = () => compose();
+$('lens').onclick = () => { lensMatch = !lensMatch; $('lens').setAttribute('aria-pressed', String(lensMatch)); if (state === 'earth') setLens(0); };
+let toonOn = true;
+$('toon').onclick = () => { toonOn = !toonOn; if (toonOn) standin.setToon(1, 0.35); else standin.setToon(0, 0); $('toon').setAttribute('aria-pressed', String(toonOn)); };
+$('ss').oninput = () => { if (hold != null) hold = +$('ss').value; };
+$('stillOn').onclick = () => { hold = +$('ss').value; if (state === 'earth') travel(); };
+$('stillOff').onclick = () => { hold = null; t0 = performance.now() - ((+$('ss').value) * flightMs); };
+$('fold').onclick = () => $('lab').classList.toggle('folded');
+// push-to-talk stays on the parent: this mark turns red while Space is held, also when the pointer is over Plissé
+addEventListener('keydown', e => { if (e.code === 'Space') { $('ptt').classList.add('held'); e.preventDefault(); } });
+addEventListener('keyup', e => { if (e.code === 'Space') $('ptt').classList.remove('held'); });
+
+window.__lab = {
+  planet, standin, driver: null, travel, returnHome, compose, orbitPose, matched,
+  get state() { return state; }, get fade() { return fade; },
+  hold(s) { hold = s; if (state === 'earth' && s != null) travel(); },
+  holdFade(v) { fadeHold = v; },
+  release() { hold = null; fadeHold = null; t0 = performance.now() - flightMs; }
+};
+if (hold != null) travel();
+</script>
+</body>
+</html>

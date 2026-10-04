@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Title lab</title>
+<link rel="stylesheet" href="css/title.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05060d; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  /* the lab chrome: dark, small, out of the way (H hides it; ?shot removes it) */
+  .lab { position: fixed; left: 14px; top: 14px; z-index: 80; width: min(330px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto;
+    font: 400 12.5px/1.35 Sentient, Georgia, serif; color: #e9e0c8; background: rgba(8, 12, 30, .72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(238, 229, 205, .14); border-radius: 4px; padding: 12px 14px 12px; }
+  .lab h2 { margin: 0 0 2px; font: 400 11px/1 Sentient, serif; letter-spacing: .28em; text-transform: uppercase; color: #d6bd86; }
+  .lab .sub { margin: 0 0 8px; opacity: .55; font-style: italic; }
+  .lab .k { margin: 10px 0 5px; font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; opacity: .55; }
+  .lab .row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .lab button { font: inherit; color: inherit; cursor: pointer; background: none; border: 1px solid rgba(238, 229, 205, .2); border-radius: 2px; padding: 4px 8px 5px; }
+  .lab button:hover { border-color: rgba(214, 189, 134, .7); }
+  .lab button[aria-pressed="true"] { background: rgba(214, 189, 134, .16); border-color: #d6bd86; color: #f2e6c4; }
+  .lab .why { margin: 8px 0 0; font-style: italic; opacity: .72; min-height: 2.6em; }
+  .lab .fnote { margin: 4px 0 0; opacity: .5; font-size: 11.5px; }
+  .lab .foot { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .lab .foot small { opacity: .45; width: 100%; }
+  .lab .begun { color: #d6bd86; font-style: italic; }
+  body.shot .lab, body.nolab .lab { display: none; }
+
+  /* the contact sheet: every name x every face over one still of her planet */
+  .grid { position: fixed; inset: 0; z-index: 70; overflow: auto; background: #070a1a; padding: 14px 14px 40px 360px; display: none; }
+  body.shot .grid { padding-left: 14px; }
+  body.is-grid .grid { display: block; }
+  body.is-grid .tt.is-main { display: none; }
+  .grid table { border-collapse: separate; border-spacing: 6px; --cw: 196px; }
+  .grid th { font: 400 10.5px/1.2 Sentient, serif; letter-spacing: .2em; text-transform: uppercase; color: rgba(238, 229, 205, .55); padding: 4px; text-align: center; white-space: nowrap; }
+  .grid th.n { text-align: right; }
+  /* each cell is the real frame scaled down (same vw/vh type sizes, same still), so the sheet is faithful */
+  .cell { position: relative; width: var(--cw, 250px); height: calc(var(--cw, 250px) * var(--ar, .625)); overflow: hidden; cursor: pointer; outline: 1px solid rgba(238, 229, 205, .08); background: #05060d; }
+  .cell:hover { outline-color: #d6bd86; }
+  .cell .frame { position: absolute; left: 0; top: 0; width: var(--fw); height: var(--fh); transform: scale(var(--k)); transform-origin: 0 0; background: var(--shot, none) 0 0 / 100% 100% no-repeat; }
+  .cell .tt { position: absolute; z-index: auto; }
+  .cell .tt__begin { pointer-events: none; }
+  .cell .tt > *, .cell .tt::before { animation: none !important; }
+  @media (max-width: 760px) { .grid { padding: 14px 8px 40px; } .grid table { --cw: 150px; } }
+</style>
+</head>
+<body>
+<aside class="lab" id="lab" aria-label="Title lab">
+  <h2>Title lab</h2>
+  <p class="sub">her planet alone · pick a name × a face · ← → faces · ↑ ↓ names · H hides this</p>
+  <div class="k">Name</div><div class="row" id="names"></div>
+  <p class="why" id="why"></p>
+  <div class="k">Display face</div><div class="row" id="fonts"></div>
+  <p class="fnote" id="fnote"></p>
+  <div class="k">Tone</div>
+  <div class="row" id="tones"><button data-tone="">face default</button><button data-tone="ivory">paper ivory</button><button data-tone="gold">pale gold</button></div>
+  <div class="foot">
+    <button id="grid">Contact sheet</button><button id="replay">Replay entrance</button><button id="spin" aria-pressed="true">Spin</button>
+    <span class="begun" id="begun"></span>
+    <small>?name=hither&amp;font=sinistre&amp;tone=gold · ?grid=1 · ?shot</small>
+  </div>
+</aside>
+<div class="grid" id="sheet"></div>
+
+<script src="vendor/three.min.js"></script>
+<script type="module">
+// Title lab (ART_DIRECTION §21): her Tower Planet (web/js/planet, look verbatim) alone in dark space in her Grain orbit,
+// slowly spinning; the title (web/js/ui/title.js) set small under it. Names x faces, a contact sheet, URL switches.
+//   ?name=<id> ?font=<id> ?tone=ivory|gold ?grid=1 ?shot (no chrome) ?zoom=1.42 ?nospin
+import { createPlanet } from './js/planet/planet.js';
+import { createTitle, frameTitlePlanet, loadTitleFont, TITLE_NAMES, TITLE_FONTS, TITLE_NAME_IDS, TITLE_FONT_IDS, TITLE_DEFAULT } from './js/ui/title.js';
+
+const Q = new URLSearchParams(location.search);
+if (Q.has('shot')) document.body.classList.add('shot');
+const pickId = (v, ids, d) => (v && ids.includes(v.toLowerCase()) ? v.toLowerCase() : d);
+const S = { name: pickId(Q.get('name'), TITLE_NAME_IDS, TITLE_DEFAULT.name), font: pickId(Q.get('font'), TITLE_FONT_IDS, TITLE_DEFAULT.font), tone: ['ivory', 'gold'].includes(Q.get('tone')) ? Q.get('tone') : '' };
+
+/* ---- her planet, alone ---- */
+const planet = createPlanet({ input: true });
+window.__planet = planet;
+// the saved look (web/assets/look.json, the Gouache lab's "Save as default"): lens + colours, so it matches the game
+fetch('assets/look.json', { cache: 'no-store' }).then(r => r.json()).then(j => {
+  const w = (j && j.world) || {}; if (!w.planet) return;
+  if (w.style_fish != null) planet.post.post.uniforms.uFish.value = +w.style_fish;
+  for (const [k, v] of Object.entries(w)) if (k.startsWith('colour_')) try { planet.setColour(k.slice(7), v); } catch (_) {}
+}).catch(() => {});
+planet.orbitSpin(!Q.has('nospin'));
+const frameOpts = { zoom: Q.get('zoom') ? +Q.get('zoom') : null };
+let release = frameTitlePlanet(planet, frameOpts);
+
+/* ---- the title ---- */
+const title = createTitle({ name: S.name, font: S.font, tone: S.tone || null, onBegin: () => {
+  // in the game the descent starts here; the lab shows the hand-back: her framing eases in, then the title returns
+  document.getElementById('begun').textContent = 'Begin: the planet eases back to her framing (the descent would start)';
+  release(1400).then(() => setTimeout(() => { document.getElementById('begun').textContent = ''; release = frameTitlePlanet(planet, frameOpts); title.show(); }, 1600));
+} });
+title.el.classList.add('is-main');
+planet.ready.then(() => title.show());
+
+/* ---- the switcher ---- */
+const $ = id => document.getElementById(id);
+const btn = (txt, data) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; Object.assign(b.dataset, data); return b; };
+for (const id of TITLE_NAME_IDS) $('names').append(btn(TITLE_NAMES[id].word, { name: id }));
+for (const id of TITLE_FONT_IDS) $('fonts').append(btn(TITLE_FONTS[id].label, { font: id }));
+function sync({ replay = true } = {}) {
+  title.set({ name: S.name, font: S.font, tone: S.tone || null, replay });
+  for (const b of document.querySelectorAll('[data-name]')) b.setAttribute('aria-pressed', b.dataset.name === S.name);
+  for (const b of document.querySelectorAll('#fonts [data-font]')) b.setAttribute('aria-pressed', b.dataset.font === S.font);
+  for (const b of document.querySelectorAll('[data-tone]')) b.setAttribute('aria-pressed', b.dataset.tone === S.tone);
+  $('why').textContent = TITLE_NAMES[S.name].why;
+  $('fnote').textContent = `${TITLE_FONTS[S.font].foundry}: ${TITLE_FONTS[S.font].note}`;
+  const u = new URL(location.href); u.searchParams.set('name', S.name); u.searchParams.set('font', S.font);
+  if (S.tone) u.searchParams.set('tone', S.tone); else u.searchParams.delete('tone');
+  history.replaceState(null, '', u);
+}
+$('lab').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.name) S.name = b.dataset.name; else if (b.dataset.font) S.font = b.dataset.font; else if (b.dataset.tone != null) S.tone = b.dataset.tone; else return;
+  sync();
+});
+$('replay').onclick = () => title.replay();
+$('spin').onclick = () => { const on = $('spin').getAttribute('aria-pressed') !== 'true'; $('spin').setAttribute('aria-pressed', on); planet.orbitSpin(on); };
+$('grid').onclick = () => toggleGrid();
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const step = (ids, cur, d) => ids[(ids.indexOf(cur) + d + ids.length) % ids.length];
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { S.font = step(TITLE_FONT_IDS, S.font, e.key === 'ArrowRight' ? 1 : -1); sync(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); S.name = step(TITLE_NAME_IDS, S.name, e.key === 'ArrowDown' ? 1 : -1); sync(); }
+  else if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('nolab');
+  else if (e.key === 'Escape' && document.body.classList.contains('is-grid')) toggleGrid(false);
+});
+sync({ replay: false });
+
+/* ---- the contact sheet: one still of her planet (grabbed straight after a frame), every combination over it ---- */
+let still = null;
+function grabStill() {
+  return new Promise(res => { const off = planet.renderHook({ afterFinish: () => { off(); try { res(planet.renderer.domElement.toDataURL('image/jpeg', .86)); } catch (_) { res(null); } } }); });
+}
+async function buildSheet() {
+  if (!still) still = await grabStill();
+  await Promise.all(TITLE_FONT_IDS.map(f => loadTitleFont(f)));
+  const sheet = $('sheet'); sheet.replaceChildren();
+  const t = document.createElement('table'), head = t.insertRow(); head.append(document.createElement('th'));
+  for (const f of TITLE_FONT_IDS) { const th = document.createElement('th'); th.textContent = TITLE_FONTS[f].label; head.append(th); }
+  for (const n of TITLE_NAME_IDS) {
+    const r = t.insertRow(); const th = document.createElement('th'); th.className = 'n'; th.textContent = TITLE_NAMES[n].word; r.append(th);
+    for (const f of TITLE_FONT_IDS) {
+      const td = r.insertCell(), cell = document.createElement('div'); cell.className = 'cell'; cell.title = `${TITLE_NAMES[n].word} · ${TITLE_FONTS[f].label}`;
+      const frame = document.createElement('div'); frame.className = 'frame'; cell.append(frame);
+      if (still) frame.style.setProperty('--shot', `url(${still})`);
+      const tt = createTitle({ parent: frame, name: n, font: f, tone: S.tone || null, hint: true, enterKey: false });
+      tt.el.hidden = false; tt.el.removeAttribute('role');
+      cell.onclick = () => { S.name = n; S.font = f; sync(); toggleGrid(false); };
+      td.append(cell);
+    }
+  }
+  sheet.append(t);
+  // the frame is this window; each cell shows it at --cw wide
+  const cw = parseFloat(getComputedStyle(t).getPropertyValue('--cw')) || 250;
+  t.style.setProperty('--fw', innerWidth + 'px'); t.style.setProperty('--fh', innerHeight + 'px');
+  t.style.setProperty('--ar', innerHeight / innerWidth); t.style.setProperty('--k', cw / innerWidth);
+}
+async function toggleGrid(on = !document.body.classList.contains('is-grid')) {
+  if (on) await buildSheet();
+  document.body.classList.toggle('is-grid', on);
+  $('grid').setAttribute('aria-pressed', on);
+}
+if (Q.get('grid') === '1') planet.ready.then(() => setTimeout(() => toggleGrid(true), 400));
+window.__titleLab = { S, sync, title, toggleGrid, set: (o) => { Object.assign(S, o); sync(); } };
+</script>
+</body>
+</html>

@@ -1,0 +1,475 @@
+/* ALOUD UI overhaul (ART_DIRECTION §24, Sueda 2026-10-04 11:20; refs reference/feedback-1120/).
+   Loaded AFTER agora.css + rewards.css. "just make the font montserrat": every UI text is Montserrat (vendored, OFL,
+   assets/fonts/licenses/Montserrat-OFL.txt); the "Aloud" title keeps Melodrama 600 (title.css, untouched). No blue serif
+   ink anywhere: near-black ink, warm white, soft translucent panels, and the pop-comic icon set's accents (icons.js
+   PALETTE: hot pink, lemon, coral, cream). The onboarding lives in ONE panel on the lower half (.ag-guide); the
+   mailbox's icon hides while its list is open; folk with unread mail get a red dot (.ag-maildot), never a tag. */
+
+@font-face { font-family: Montserrat; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(../assets/fonts/Montserrat-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Montserrat; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(../assets/fonts/Montserrat-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: Montserrat; font-style: italic; font-weight: 100 900; font-display: swap;
+  src: url(../assets/fonts/Montserrat-Italic-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: Montserrat; font-style: italic; font-weight: 100 900; font-display: swap;
+  src: url(../assets/fonts/Montserrat-Italic-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+/* same specificity as agora.css's :root[data-ag-font="G"] and paint.css's dark-scheme :root rules, later in the cascade:
+   Montserrat and the new ink whatever set or colour scheme is named */
+:root, :root[data-ag-font], :root:not([data-theme="light"]), :root[data-theme] {
+  --ag-font-display: Montserrat, "Helvetica Neue", Arial, system-ui, sans-serif;
+  --ag-font-text: Montserrat, "Helvetica Neue", Arial, system-ui, sans-serif;
+  --ag-serif: var(--ag-font-text);
+  --ag-fsa-text: none; --ag-fsa-display: none;
+  /* the palette (icons.js PALETTE) */
+  --ink: #2a2740; --line: #2a2740; --paper: #fff8ee; --ag-sheet: #fffaf3;
+  --red: #ee2a2e; --pink: #ee3d84; --pink-l: #f8aecb; --mag: #b3175a; --lemon: #ffe23a; --cream: #fff3dc; --coral: #ff6d5a;
+  --ag-panel: rgba(255, 250, 243, .93);
+  --ag-panel-line: rgba(42, 39, 64, .1);
+  --ag-shadow: 0 22px 44px -18px rgba(42, 25, 50, .42), 0 2px 8px rgba(42, 25, 50, .12);
+  --ag-blur: blur(14px) saturate(1.15);
+  --ag-halo: 0 0 1px rgba(255, 250, 243, .95), 0 0 8px rgba(255, 250, 243, .85), 0 0 18px rgba(255, 250, 243, .55);
+  --ag-halo-soft: 0 0 1px rgba(255, 250, 243, .9), 0 0 8px rgba(255, 250, 243, .7);
+  --ag-halo-strong: 0 0 1px rgba(255, 250, 243, 1), 0 0 3px rgba(255, 250, 243, 1), 0 0 8px rgba(255, 250, 243, .9), 0 0 16px rgba(255, 250, 243, .6);
+  /* the halftone dots of the pop set, as a texture for accents */
+  --ag-halftone: radial-gradient(circle, rgba(238, 61, 132, .26) 1.15px, transparent 1.55px);
+}
+
+.ag-ui { color: var(--ink); font-family: var(--ag-font-text); font-weight: 500; letter-spacing: 0; }
+.ag-ui :is(em, i) { font-style: normal; }
+.ag-ui :where(h1, h2, h3, b, strong) { font-weight: 700; }
+/* the old display-face list (agora.css): a heavier Montserrat, never slanted */
+.ag-ui :is(.ag-display, .ag-ledger__name, .ag-ledger__min .nm, .ag-letter__from, .ag-letter__subject, .ag-letter__sign .nm,
+  .ag-mread__from, .ag-mread__subject, .ag-mread__sign .nm, .ag-card__name, .ag-fleet__name, .ag-elect__line, .ag-elected__line, .ag-director .txt,
+  .ag-decree__title, .ag-fan__title, .ag-mail__from, .ag-mail__subj, .ag-mailcol__title, .ag-band--t .tt, .ag-pick__title) { font-weight: 700; letter-spacing: -.01em; font-synthesis-style: none; }
+.ag-ui button:focus-visible, .ag-ui input:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+.ag-kicker { font-weight: 700; color: var(--pink); }
+.ag-link { font-weight: 600; text-decoration-color: rgba(238, 61, 132, .45); }
+.ag-link:hover { color: var(--pink); text-decoration-color: var(--pink); }
+
+/* every paper card becomes a soft rounded panel (no torn deckle, no paper grain) */
+.ag-ui .ag-paper { filter: none; }
+.ag-ui .ag-sheet { clip-path: none !important; border-radius: 18px; background-color: var(--ag-panel); background-image: none;
+  -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur); box-shadow: var(--ag-shadow), inset 0 0 0 1px var(--ag-panel-line); }
+
+/* the pop icons: inline SVG slots */
+.ag-icon { display: inline-grid; place-items: center; line-height: 0; vertical-align: middle; flex: none; }
+.ag-icon svg { display: block; overflow: visible; }
+
+/* ---------- §24: no settlement name top-left (the ledger stays on Tab); the rewards tally takes the corner ---------- */
+.ag-place { display: none !important; }
+.ag-ui .ag-rw { left: var(--ag-gut) !important; top: var(--ag-gut) !important; font-family: var(--ag-font-text); color: var(--ink); gap: 10px;
+  padding: 7px 14px 7px 9px; border-radius: 999px; background: var(--ag-panel); -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur);
+  box-shadow: var(--ag-shadow), inset 0 0 0 1px var(--ag-panel-line); opacity: 1; }
+.ag-ui .ag-rw::before { display: none; }
+.ag-ui .ag-rw__slot { height: 28px; gap: 5px; }
+.ag-ui .ag-rw__icon { width: 28px; height: 28px; filter: none; }
+.ag-ui .ag-rw__num { font-size: 15px; font-weight: 700; text-shadow: none; }
+.ag-ui .ag-rw__level { font-family: var(--ag-font-text); font-style: normal; font-weight: 700; font-size: 13px; letter-spacing: .02em; }
+.ag-ui .ag-rw__bar { left: 33px; background: rgba(42, 39, 64, .12); }
+.ag-ui .ag-rw__bar::after { background: var(--pink); }
+.ag-ui .ag-rw__line { font-family: var(--ag-font-text); font-style: normal; font-weight: 600; }
+
+/* ---------- the mailbox, top right: one round pop button; it hides while its list is open ---------- */
+.ag-stack { right: var(--ag-gut); top: var(--ag-gut); width: 66px; height: 66px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ag-panel); -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur);
+  box-shadow: var(--ag-shadow), inset 0 0 0 1px var(--ag-panel-line); transition: transform .25s cubic-bezier(.3, 1.5, .5, 1), opacity .3s; }
+.ag-stack:hover { transform: translateY(-2px) rotate(-4deg); }
+.ag-stack__icon { display: none; }
+:root.ag-pop-icons .ag-stack__icon { display: grid; place-items: center; }
+:root.ag-pop-icons .ag-stack .ag-env { display: none; }
+.ag-stack .ag-env { width: 40px; height: 26px; right: 13px; top: 20px; }
+.ag-stack .ag-env--0 { display: none; }
+.ag-stack .ag-env .ag-seal { display: none; }
+.ag-stack__count { right: -4px; top: -4px; width: 26px; height: 26px; font-family: var(--ag-font-text); font-style: normal; font-weight: 800; font-size: 13px; line-height: 26px;
+  background: var(--red); color: #fff; box-shadow: 0 0 0 2.5px var(--paper), 0 2px 6px rgba(150, 10, 30, .35); text-shadow: none; display: grid; place-items: center; padding: 0; }
+.ag-stack__lbl { display: none; }
+.ag-stack__more { display: none !important; }
+/* open: only the list (and the letter in it) shows, in the mailbox's own place */
+.ag-ui.is-mailcol .ag-stack, .ag-ui.is-cinema.is-mailcol .ag-stack { opacity: 0 !important; pointer-events: none !important; transform: scale(.8); }
+.ag-mailcol { top: var(--ag-gut); right: var(--ag-gut); width: min(372px, calc(100vw - 2 * var(--ag-gut))); }
+.ag-mailcol.is-reading { width: min(400px, calc(100vw - 2 * var(--ag-gut))); }
+.ag-mailcol .ag-sheet { max-height: min(58vh, calc(100vh - 2 * var(--ag-gut) - 150px)); padding: 14px 0 10px; }
+.ag-mailcol.is-reading .ag-sheet { max-height: min(76vh, calc(100vh - 2 * var(--ag-gut) - 150px)); padding: 12px 0 14px; }
+.ag-mailcol__head { position: relative; padding: 0 48px 11px 18px; border-bottom: 1px solid var(--ag-panel-line); align-items: center; }
+.ag-mailcol__title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.ag-mailcol__sub { font-size: 13px; font-weight: 600; color: var(--pink); opacity: 1; }
+.ag-mailcol__acts, .ag-mailcol__acts .ag-link { font-size: 12.5px; }
+.ag-mailcol__close, .ag-mread__x { position: absolute; right: 10px; top: -4px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
+  display: grid; place-items: center; opacity: 1; color: var(--ink); transition: transform .2s; }
+.ag-mailcol__close:hover, .ag-mread__x:hover { transform: rotate(90deg) scale(1.08); }
+.ag-mailcol__close svg, .ag-mread__x svg { width: 24px; height: 24px; }
+.ag-mailcol__item { border-bottom: 1px solid var(--ag-panel-line); }
+.ag-mailcol__main { padding: 10px 6px 10px 16px; gap: 12px; }
+.ag-mailcol__main:hover { background: rgba(238, 61, 132, .06); }
+.ag-note__who { font-size: 14.5px; }
+.ag-note__who b { font-weight: 700; }
+.ag-note__who i { font-size: 13px; font-weight: 500; opacity: .6; }
+.ag-mailcol__main .ag-note__who { font-size: 14.5px; }
+.ag-mailcol__main .ag-note__who i { font-size: 13px; }
+.ag-note__subj, .ag-mailcol__main .ag-note__subj { font-size: 13.5px; font-weight: 500; }
+.ag-mailcol__item.is-unread .ag-note__subj { font-weight: 600; }
+.ag-mailcol__time, .ag-note__time { font-size: 11.5px; font-weight: 500; }
+.ag-mailcol__dot::after { background: var(--red); box-shadow: 0 0 0 3px rgba(238, 42, 46, .14); }
+.ag-mailcol__x { opacity: .45; }
+.ag-mailcol__x svg, .ag-note__x svg { width: 16px; height: 16px; }
+.ag-mailcol__empty { font-size: 13.5px; font-weight: 500; }
+.ag-mailcol__foot { padding: 10px 18px 0; border-top: 1px solid var(--ag-panel-line); }
+.ag-mailcol__foot .ag-link { font-size: 12.5px; }
+.ag-mailcol__tip { display: none; }
+/* the letter, read inside the box */
+.ag-mread__bar { padding: 0 52px 10px 18px; align-items: center; border-bottom: 1px solid var(--ag-panel-line); }
+.ag-mread__x { top: -6px; }
+.ag-mread__back, .ag-mread__nav .ag-link { font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; }
+.ag-mread__back > span, .ag-mread__nav .ag-link > span { display: inline-flex; align-items: center; gap: 4px; }
+.ag-mread__nav .ag-link[disabled] { opacity: .3; }
+.ag-mread__pos { font-size: 12px; font-weight: 600; }
+.ag-mread__head { padding: 14px 20px 0 18px; }
+.ag-mread__head .ag-cameo { transform: none; }
+.ag-mread__from { font-size: 19px; font-weight: 700; }
+.ag-mread__line { font-size: 12.5px; font-weight: 500; opacity: .6; }
+.ag-mread__day { font-size: 12px; font-weight: 600; color: var(--pink); opacity: 1; }
+.ag-mread__subject { font-size: 18px; font-weight: 700; line-height: 1.25; }
+.ag-mread__subject::after { width: 28px; height: 3px; border-radius: 3px; background: var(--lemon); opacity: 1; box-shadow: 1px 1px 0 var(--ink); }
+.ag-mread__text { font-size: 14.5px; font-weight: 500; line-height: 1.6; }
+.ag-mread__sign { padding-left: 0; margin-top: 10px; }
+.ag-mread__sign .nm, .ag-mread__sign.is-long .nm { font-size: 15px; font-weight: 700; }
+.ag-mread__sign .sub { font-size: 12px; }
+.ag-mread__note { font-size: 13px; }
+.ag-mread__note b { font-weight: 700; color: var(--pink); }
+.ag-mread__replies { border-top: 1px solid var(--ag-panel-line); padding-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.ag-mread__replies .ag-reply { padding: 0; }
+.ag-mread__aloud { font-size: 11.5px; font-weight: 500; }
+.ag-mread__stamp { font-family: var(--ag-font-text); }
+/* the quick replies: little pop pills */
+.ag-reply { font-family: var(--ag-font-text); }
+.ag-reply i { display: none; }
+.ag-reply span, .ag-mread__replies .ag-reply span { display: inline-block; font-size: 13px; font-weight: 600; text-decoration: none; padding: 7px 13px; border-radius: 999px;
+  background: var(--cream); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink), 2px 2px 0 var(--ink); transition: transform .15s, background .15s; }
+.ag-reply:hover span { background: var(--lemon); transform: translate(-1px, -1px); }
+.ag-reply[aria-pressed="true"] span { background: var(--pink); color: #fff; }
+.ag-reply[aria-pressed="true"] span::after { display: none; }
+.ag-stamp { font-family: var(--ag-font-text); font-style: normal; font-weight: 700; color: var(--pink); box-shadow: inset 0 0 0 1.5px var(--pink); }
+/* the notes that slide in under the mailbox */
+.ag-notes { top: calc(var(--ag-gut) + 78px); width: min(320px, calc(100vw - 2 * var(--ag-gut))); }
+.ag-note .ag-sheet { padding: 9px 34px 9px 10px; border-radius: 16px; }
+.ag-note__x { opacity: .5; }
+
+/* the cameo / face rings: ink, not paper-blue */
+.ag-cameo img { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--ink); }
+.ag-face > img { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px color-mix(in srgb, var(--c, var(--ink)) 70%, transparent), 0 4px 9px rgba(42, 25, 50, .22); }
+
+/* ---------- the red dot over a folk who sent something (game/mail-dots.js) ---------- */
+.ag-maildots { position: absolute; inset: 0; pointer-events: none; z-index: 8; transition: opacity .3s; }
+.ag-maildots.is-off { opacity: 0; }
+.ag-maildots.is-off .ag-maildot { pointer-events: none; }
+.ag-maildot { position: absolute; left: 0; top: 0; width: 26px; height: 26px; margin: -13px 0 0 -13px; padding: 0; border: 0; background: none; cursor: pointer;
+  pointer-events: auto; display: none; place-items: center; }
+.ag-maildot.is-on { display: grid; }
+.ag-maildot .ag-icon { animation: ag-dot-pop .5s cubic-bezier(.3, 1.6, .5, 1) both, ag-dot-bob 2.4s ease-in-out .5s infinite; }
+.ag-maildot .ag-icon svg { width: 18px; height: 18px; }
+.ag-maildot .ag-icon > i { display: block; width: 11px; height: 11px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--paper), 0 1px 4px rgba(150, 10, 30, .4); }
+.ag-maildot:hover .ag-icon { transform: scale(1.2); }
+@keyframes ag-dot-pop { from { transform: scale(0); } }
+@keyframes ag-dot-bob { 50% { translate: 0 -2px; } }
+
+/* ---------- the voice mark (bottom centre) + the typed line ---------- */
+.ag-mark { width: 54px; height: 54px; background: var(--ag-panel); -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur);
+  box-shadow: var(--ag-shadow), inset 0 0 0 1px var(--ag-panel-line); }
+.ag-mark:hover { color: var(--ink); transform: translateY(-2px); }
+.ag-mark .ag-icon[data-icon="mic-live"] { display: none; }
+.ag-voice[data-state="listening"] .ag-mark .ag-icon[data-icon="mic"] { display: none; }
+.ag-voice[data-state="listening"] .ag-mark .ag-icon[data-icon="mic-live"] { display: grid; }
+.ag-voice[data-state="listening"] .ag-mark { background: var(--lemon); }
+.ag-voice[data-state="listening"] .ag-mark::after { box-shadow: 0 0 0 2px var(--pink); }
+.ag-mic-glyph { filter: none; }
+.ag-mark__lbl { left: calc(100% + 10px); font-size: 12.5px; font-weight: 600; text-shadow: var(--ag-halo-strong); display: inline-flex; align-items: center; }
+.ag-mark__lbl .k-key { display: inline-flex; align-items: center; gap: 5px; }
+.ag-wave i { background: var(--pink); }
+.ag-type { width: min(580px, calc(100vw - 2 * var(--ag-gut))); padding: 6px 18px; border-radius: 999px; background: var(--ag-panel); -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur);
+  box-shadow: var(--ag-shadow), inset 0 0 0 2px var(--ink); align-items: center; }
+.ag-type::before, .ag-type::after { display: none; }
+.ag-type__input { font-size: 17px; font-weight: 600; text-shadow: none; padding: 8px 2px; }
+.ag-type__input::placeholder { color: rgba(42, 39, 64, .45); font-weight: 500; }
+.ag-type__keys { font-size: 11.5px; font-weight: 600; text-shadow: none; }
+
+/* ---------- the live caption, the director line, the hint, notices: Montserrat on soft pills ---------- */
+.ag-caption { bottom: calc(var(--ag-gut) + 74px + var(--ag-band-b)); }
+.ag-caption::before { inset: -10px -22px; border-radius: 999px; background: var(--ag-panel); box-shadow: var(--ag-shadow); }
+.ag-caption .txt { font-size: clamp(17px, 1.6vw, 22px); font-weight: 600; line-height: 1.3; letter-spacing: -.005em; text-shadow: none; }
+.ag-caption .caret { background: var(--pink); }
+.ag-director::before { display: none; }
+.ag-director__k { font-weight: 700; color: var(--pink); }
+.ag-director .txt { font-size: clamp(24px, 2.6vw, 38px); font-weight: 800; line-height: 1.12; letter-spacing: -.02em; }
+.ag-director .txt em { color: var(--pink); }
+.ag-hint { --hint-ivory: var(--ink); --hint-gold: var(--mag); bottom: calc(var(--ag-gut) + 74px + var(--ag-band-b)); background: var(--ag-panel);
+  box-shadow: var(--ag-shadow), inset 0 0 0 1px var(--ag-panel-line); color: var(--ink); font-size: 13.5px; font-weight: 500; }
+.ag-hint.is-guide { font-size: 14px; }
+.ag-hint i, .ag-hint__say { color: var(--mag) !important; font-weight: 700; }
+.ag-notice::before { inset: -9px -18px; border-radius: 999px; background: var(--ag-panel); box-shadow: var(--ag-shadow), inset 0 0 0 1px var(--ag-panel-line); }
+.ag-notice__line { font-size: 14px; font-weight: 600; text-shadow: none; }
+.ag-notice__stage { font-size: 12px; font-weight: 500; text-shadow: none; }
+.ag-scribble path { stroke: var(--pink); }
+.ag-ui.is-guiding .ag-hint { opacity: 0 !important; }
+
+/* ---------- the agent card, talk, the folk's bubbles ---------- */
+.ag-card .ag-sheet { border-radius: 20px; }
+.ag-card__name { font-size: 20px; }
+.ag-card__sp, .ag-card__job, .ag-card__wears, .ag-card__mood, .ag-card__venture { font-size: 13px; }
+.ag-trait .t { font-weight: 700; }
+.ag-skill .ticks i.on { background: var(--pink); }
+.ag-card__talkbtn { font-weight: 700; }
+.ag-bubble__paper { border-radius: 16px; font-family: var(--ag-font-text); font-weight: 500; }
+.ag-talk__input { font-family: var(--ag-font-text); font-style: normal; font-weight: 600; font-size: 15px; }
+.agb { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink), 2px 3px 0 rgba(42, 39, 64, .9); border-radius: 14px; }
+.agb::after { background: var(--paper); box-shadow: 1.5px 1.5px 0 0 var(--ink); }
+
+/* ---------- the opening's old overlays (director / ?opening=auto only now): Montserrat, ink, on a panel ---------- */
+.ag-fleet, .ag-elect, .ag-elected { font-family: var(--ag-font-text); color: var(--ink); }
+.ag-fleet::before, .ag-elect::before, .ag-elected::before { border-radius: 24px; background: var(--ag-panel) !important; box-shadow: var(--ag-shadow); -webkit-backdrop-filter: var(--ag-blur); backdrop-filter: var(--ag-blur); }
+.ag-fleet__k, .ag-elect__k, .ag-elected__k { font-family: var(--ag-font-text); font-weight: 700; color: var(--pink); letter-spacing: .14em; }
+.ag-fleet__name { font-size: clamp(28px, 3vw, 40px); font-weight: 800; color: var(--ink); text-shadow: none; }
+.ag-fleet__line, .ag-fleet__note, .ag-elect__note, .ag-elect__who, .ag-elected__sub { font-family: var(--ag-font-text); font-style: normal; font-weight: 500; color: var(--ink); text-shadow: none; }
+.ag-fleet__rule { background: var(--pink); }
+.ag-elect__line { font-size: clamp(22px, 2.4vw, 32px); font-weight: 800; color: var(--ink); text-shadow: none; }
+.ag-elect__line em { color: var(--pink); }
+.ag-elected__line { font-weight: 800; color: var(--ink); text-shadow: none; }
+.ag-elected__line .nm { color: var(--pink); }
+.ag-pick__done { font-family: var(--ag-font-text); font-weight: 700; }
+.ag-skip { font-family: var(--ag-font-text) !important; font-style: normal !important; font-weight: 600; font-size: 13px !important; }
+
+/* ======================= the onboarding (ui/guide.js), §24 pm: a SLIM strip that tucks itself into a corner PILL ======================= */
+/* Sueda: "it takes lots of space ... you can't see much when you really need to see the civ" + "after the read it could
+   collapse automatically or go to a different part of the page". The strip sits low and slim (one line of words); after
+   the read, or as soon as she acts, it shrinks into the pill bottom-left. */
+.ag-guide { position: absolute; left: 50%; bottom: calc(var(--ag-gut) + 74px); z-index: 34; width: min(560px, calc(100vw - 2 * var(--ag-gut) - 12px));
+  transform: translate(-50%, 18px) scale(.96); opacity: 0; pointer-events: none; transition: opacity .35s, transform .45s cubic-bezier(.2, .9, .25, 1); transform-origin: 0 100%; }
+.ag-guide.is-on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.ag-guide.is-out { opacity: 0; transform: translate(-50%, 12px); }
+/* tucked: it flies to the bottom-left corner as it fades, where the pill pops up */
+.ag-guide.is-tucked { opacity: 0; transform: translate(calc(-50vw + var(--ag-gut) + 40px), 60px) scale(.3); pointer-events: none; transition: opacity .3s .05s, transform .42s cubic-bezier(.6, 0, .4, 1); }
+.ag-guide__card { position: relative; padding: 11px 16px 12px 14px; border-radius: 20px; color: var(--ink); }
+.ag-guide__top { position: relative; display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+.ag-guide__label { font-size: 11px; font-weight: 800; letter-spacing: .08em; color: var(--pink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ag-guide__dots { display: inline-flex; align-items: center; gap: 2px; }
+.ag-guide__dots i { display: grid; place-items: center; line-height: 0; }
+.ag-guide__skip { margin-left: auto; border: 0; background: none; padding: 2px; cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--ink); opacity: .55;
+  text-decoration: underline; text-decoration-color: rgba(42, 39, 64, .3); text-underline-offset: 3px; }
+.ag-guide__skip:hover { opacity: 1; color: var(--pink); }
+.ag-guide__min { border: 0; background: none; padding: 2px; width: 26px; height: 26px; display: grid; place-items: center; cursor: pointer; border-radius: 50%; transition: transform .2s; }
+.ag-guide__min:hover { transform: translateY(2px); }
+.ag-guide__main { position: relative; display: flex; align-items: center; gap: 11px; }
+.ag-guide__badge { flex: none; display: grid; place-items: center; width: 44px; height: 44px; }
+.ag-guide__badge[hidden] { display: none; }
+.ag-guide__words { min-width: 0; }
+.ag-guide__title { margin: 0; font-size: 17px; font-weight: 800; line-height: 1.2; letter-spacing: -.015em; text-shadow: 1.5px 1.5px 0 rgba(238, 61, 132, .35); }
+.ag-guide__body { position: relative; margin: 2px 0 0; font-size: 13.5px; font-weight: 500; line-height: 1.45; color: rgba(42, 39, 64, .85); text-wrap: pretty; }
+.ag-guide__aside { position: relative; margin-top: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 226, 58, .4); font-size: 12.5px; line-height: 1.4; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.ag-guide__aside b { font-weight: 800; }
+.ag-guide__aside .c { font-weight: 500; opacity: .8; }
+.ag-guide__aside .n { font-weight: 700; color: var(--mag); margin-left: 4px; }
+.ag-guide__aside em { display: block; margin-top: 2px; font-style: normal; font-weight: 500; opacity: .8; }
+.ag-guide__chips { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 9px; }
+.ag-guide__chip { display: inline-flex; align-items: center; gap: 5px; border: 0; cursor: pointer; padding: 6px 12px; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink);
+  background: var(--cream); box-shadow: inset 0 0 0 2px var(--ink), 2px 2px 0 var(--ink); transition: transform .15s, background .15s, box-shadow .15s; }
+.ag-guide__chip.has-icon { padding-left: 7px; }
+.ag-guide__chip:hover { background: var(--lemon); transform: translate(-1px, -1px); box-shadow: inset 0 0 0 2px var(--ink), 3px 3px 0 var(--ink); }
+.ag-guide__acts { position: relative; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 12px; margin-top: 9px; }
+.ag-guide__acts:has(> [hidden] + [hidden] + [hidden]) { display: none; }
+.ag-guide__todo { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; padding: 6px 12px 6px 10px; border-radius: 999px;
+  background: var(--lemon); box-shadow: inset 0 0 0 2px var(--ink); }
+.ag-guide__pulse { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--pink); flex: none; }
+.ag-guide__pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 2px var(--pink); animation: ag-guide-pulse 1.4s ease-out infinite; }
+@keyframes ag-guide-pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(2.6); opacity: 0; } }
+.ag-guide__ok { margin-right: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 800; color: var(--ink); animation: ag-guide-ok .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes ag-guide-ok { from { transform: scale(.8); opacity: 0; } }
+.ag-guide__tick { display: grid; place-items: center; }
+.ag-guide__btn { border: 0; cursor: pointer; padding: 9px 20px; border-radius: 999px; font: inherit; font-size: 13.5px; font-weight: 800; letter-spacing: .01em; color: var(--ink);
+  background: var(--lemon); box-shadow: inset 0 0 0 2.5px var(--ink), 3px 3px 0 var(--ink); transition: transform .15s, box-shadow .15s, background .2s; }
+.ag-guide__btn:hover { background: var(--pink); color: #fff; transform: translate(-1px, -1px); box-shadow: inset 0 0 0 2.5px var(--ink), 4px 4px 0 var(--ink); }
+.ag-ui.is-guiding :is(.ag-fleet, .ag-elect, .ag-elected) { display: none; }
+
+/* the pill: bottom-left, out of the way. "③ Open the letter"; a click opens the strip again */
+.ag-guide-pill { position: absolute; left: var(--ag-gut); bottom: var(--ag-gut); z-index: 34; display: inline-flex; align-items: center; gap: 8px; max-width: min(320px, calc(100vw - 2 * var(--ag-gut) - 80px));
+  padding: 7px 14px 7px 11px; border-radius: 999px; cursor: pointer; pointer-events: auto; color: var(--ink); font-size: 13px; font-weight: 800;
+  background: var(--lemon); box-shadow: 0 0 0 2.5px var(--ink), 0 0 0 5px var(--cream), 4px 5px 0 5px var(--pink);
+  opacity: 0; transform: translateY(10px) scale(.8); transition: opacity .25s, transform .3s cubic-bezier(.3, 1.5, .5, 1); }
+.ag-guide-pill.is-on { opacity: 1; transform: none; }
+.ag-guide-pill:hover { background: #fff; }
+.ag-guide-pill:focus-visible { outline: 2px solid var(--pink); outline-offset: 6px; }
+.ag-guide-pill__n { font-size: 17px; line-height: 1; display: grid; place-items: center; color: var(--mag); }
+.ag-guide-pill__t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-guide-pill__go { border: 0; background: var(--ink); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; margin-right: -6px; padding: 0; }
+.ag-guide-pill__go:hover { background: var(--pink); }
+.ag-guide-pill.is-ok { background: #c8f0b8; }
+.ag-guide-pill.is-ok .ag-guide__pulse { display: none; }
+
+/* the pointer: a pulsing pop ring round the thing to click, with a small label */
+.ag-guide-ring { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 35; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.ag-guide-ring.is-on { opacity: 1; }
+.ag-guide-ring > i { position: absolute; left: calc(-.5 * var(--rw, 60px)); top: calc(-.5 * var(--rh, 60px)); width: var(--rw, 60px); height: var(--rh, 60px); border-radius: var(--rad, 50%);
+  box-shadow: 0 0 0 3px var(--pink), 0 0 0 6px rgba(255, 250, 243, .85); animation: ag-ring-pulse 1.5s ease-in-out infinite; }
+.ag-guide-ring > i::after { content: ""; position: absolute; inset: -9px; border-radius: calc(var(--rad, 30px) + 9px); box-shadow: 0 0 0 2px var(--lemon); animation: ag-ring-out 1.5s ease-out infinite; }
+@keyframes ag-ring-pulse { 50% { transform: scale(1.04); } }
+@keyframes ag-ring-out { from { transform: scale(.96); opacity: .9; } to { transform: scale(1.12); opacity: 0; } }
+.ag-guide-ring__lbl { position: absolute; left: 50%; top: calc(var(--rh, 60px) / 2 + 12px); transform: translateX(-50%); white-space: nowrap; padding: 5px 11px; border-radius: 999px;
+  font-size: 12px; font-weight: 800; letter-spacing: .02em; color: var(--ink); background: var(--lemon); box-shadow: inset 0 0 0 2px var(--ink), 2px 2px 0 var(--ink); }
+.ag-guide-ring.is-up .ag-guide-ring__lbl { left: calc(var(--rw, 60px) / 2 + 14px); top: 0; bottom: auto; transform: translateY(-50%); }
+.ag-guide-ring.is-left .ag-guide-ring__lbl, .ag-guide-ring.is-left.is-up .ag-guide-ring__lbl { left: auto; right: calc(var(--rw, 60px) / 2 + 14px); top: 0; bottom: auto; transform: translateY(-50%); }
+.ag-guide-ring__lbl[hidden] { display: none; }
+@media (max-width: 600px) {
+  .ag-guide { bottom: calc(var(--ag-gut) + 70px); }
+  .ag-guide__card { padding: 10px 12px 11px; }
+  .ag-guide__badge { width: 34px; height: 34px; }
+  .ag-guide__body { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ag-guide, .ag-guide-pill, .ag-guide-ring > i, .ag-guide-ring > i::after, .ag-guide__pulse::after, .ag-maildot .ag-icon { animation: none !important; transition: none !important; }
+}
+
+/* a letter arriving: the pop envelope flies into the mailbox */
+.ag-arrive { right: calc(var(--ag-gut) + 5px); top: calc(var(--ag-gut) + 5px); width: 56px; height: 56px; filter: drop-shadow(0 6px 10px rgba(42, 25, 50, .25)); }
+.ag-arrive .ag-icon, .ag-arrive .ag-icon svg { width: 56px; height: 56px; }
+@media (max-width: 600px) {
+  /* the mark's words sit above it on a phone (beside it they would leave the screen) */
+  .ag-mark__lbl { left: 50%; top: auto; bottom: calc(100% + 8px); transform: translateX(-50%); }
+}
+/* the folk's bubbles live in the world: under every panel of ours (the onboarding card, the mailbox, the agent card) */
+.agb-layer { z-index: 9 !important; }
+.ag-mark__lbl { left: calc(100% + 20px); }
+@media (max-width: 600px) { .ag-mark__lbl { left: 50%; } }
+
+/* ======================= §24 pm: the POP CARD (reference/feedback-1120/icon-aesthetic-pop-comic.png) =======================
+   Every card of ours prints like the icons: cream stock, a bold ink outline, a die-cut cream sticker edge, the pink
+   colour drum a little off register (the offset shadow), and a corner of pink halftone. Montserrat stays the body text. */
+:root { --pop-card: #fff8ec;
+  --pop-edge: 0 0 0 2.5px var(--ink), 0 0 0 5.5px var(--cream), 6px 7px 0 5.5px var(--pink);
+  --pop-edge-sm: 0 0 0 2px var(--ink), 0 0 0 4.5px var(--cream), 4px 5px 0 4.5px var(--pink);
+  --pop-halftone: radial-gradient(circle at 100% 0, rgba(255, 248, 236, 0) 0, rgba(255, 248, 236, 0) 34px, var(--pop-card) 104px),
+    radial-gradient(circle, rgba(238, 61, 132, .55) 1.3px, transparent 1.8px) 0 0 / 7px 7px; }
+.ag-guide__card, .ag-ui .ag-card .ag-sheet, .ag-ui .ag-mailcol .ag-sheet, .ag-ui .ag-letter .ag-sheet, .ag-ui .ag-ledger .ag-sheet, .ag-ui .ag-pick .ag-sheet,
+.ag-ui .ag-decree .ag-sheet, .ag-call, .ag-goals {
+  background: var(--pop-halftone), var(--pop-card) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  box-shadow: var(--pop-edge) !important; border-radius: 18px; }
+.ag-ui .ag-note .ag-sheet, .ag-ui .ag-band .ag-sheet { background: var(--pop-card) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: var(--pop-edge-sm) !important; }
+/* the headings print with a hair of pink off register */
+.ag-ui :is(.ag-card__name, .ag-mread__from, .ag-mread__subject, .ag-mailcol__title, .ag-ledger__name, .ag-pick__title, .ag-letter__subject) { text-shadow: 1.5px 1.5px 0 rgba(238, 61, 132, .4); }
+.ag-ui .ag-mread__subject::after { height: 4px; width: 34px; background: var(--lemon); box-shadow: 0 0 0 1.5px var(--ink); }
+.ag-ui .ag-mailcol__item.is-unread .ag-mailcol__main { background: linear-gradient(90deg, rgba(255, 226, 58, .28), transparent 70%); }
+/* the round buttons (the mailbox, the mic) and the tally wear the sticker edge too */
+.ag-stack, .ag-mark, .ag-ui .ag-rw { background: var(--pop-card) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: var(--pop-edge-sm) !important; }
+.ag-voice[data-state="listening"] .ag-mark { background: var(--lemon) !important; }
+
+/* ======================= the Ministry's first jobs (game/ministry.js): top left, under the tally ======================= */
+.ag-goals { position: absolute; left: calc(var(--ag-gut) + 4px); top: calc(var(--ag-gut) + 62px); z-index: 12; width: min(330px, calc(100vw - 2 * var(--ag-gut) - 12px)); padding: 8px 10px 9px;
+  pointer-events: auto; color: var(--ink); opacity: 0; transform: translateY(-8px) scale(.96); transition: opacity .35s, transform .45s cubic-bezier(.3, 1.4, .5, 1); }
+.ag-goals.is-on { opacity: 1; transform: none; }
+.ag-ui.is-title .ag-goals, .ag-ui.is-cinema .ag-goals, .ag-ui.is-ledger .ag-goals, .ag-ui.is-meeting .ag-goals { opacity: 0; pointer-events: none; }
+.ag-goals__head { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: none; padding: 0 2px; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+.ag-goals__ic { display: grid; place-items: center; }
+.ag-goals__k { flex: 1; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--pink); }
+.ag-goals__chev { display: grid; place-items: center; transition: transform .25s; }
+.ag-goals.is-collapsed .ag-goals__chev { transform: rotate(-90deg); }
+.ag-goals.is-collapsed .ag-goals__list { display: none; }
+.ag-goals__list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ag-goals__item { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+.ag-goals__box { width: 18px; height: 18px; border-radius: 5px; box-shadow: inset 0 0 0 2px var(--ink); background: #fff; display: grid; place-items: center; }
+.ag-goals__item.is-done .ag-goals__box { box-shadow: none; background: none; }
+.ag-goals__item.is-done .ag-goals__txt { text-decoration: line-through; text-decoration-color: var(--pink); text-decoration-thickness: 2px; opacity: .7; }
+.ag-goals__n { font-weight: 800; color: var(--mag); }
+.ag-goals__say { display: inline-flex; align-items: center; gap: 3px; border: 0; cursor: pointer; padding: 3px 8px 3px 5px; border-radius: 999px; font: inherit; font-size: 11px; font-weight: 800; color: var(--ink);
+  background: var(--lemon); box-shadow: inset 0 0 0 1.5px var(--ink), 1.5px 1.5px 0 var(--ink); white-space: nowrap; }
+.ag-goals__say:hover { background: #fff; }
+
+/* ======================= "Call the Ministry" (ui/call.js) ======================= */
+.ag-callbtn { position: absolute; right: calc(var(--ag-gut) - 4px); top: calc(var(--ag-gut) + 80px); z-index: 12; display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
+  pointer-events: auto; padding: 4px 12px 4px 5px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 800; color: var(--ink);
+  background: var(--lemon); box-shadow: var(--pop-edge-sm); transition: transform .18s, background .2s, opacity .3s; }
+.ag-callbtn:hover { transform: translate(-1px, -2px) rotate(-2deg); background: #fff; }
+.ag-ui.is-mailcol .ag-callbtn, .ag-ui.is-calling .ag-callbtn, .ag-ui.is-title .ag-callbtn, .ag-ui.is-cinema .ag-callbtn, .ag-ui.is-meeting .ag-callbtn { opacity: 0; pointer-events: none; }
+.ag-notes { top: calc(var(--ag-gut) + 128px); }
+.ag-call { position: absolute; right: var(--ag-gut); top: calc(var(--ag-gut) + 80px); z-index: 33; width: min(340px, calc(100vw - 2 * var(--ag-gut) - 10px)); padding: 12px 13px 12px;
+  pointer-events: auto; color: var(--ink); opacity: 0; transform: translateY(-10px) scale(.94); transform-origin: 100% 0; transition: opacity .25s, transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.ag-call.is-on { opacity: 1; transform: none; }
+.ag-call[hidden] { display: none; }
+.ag-call__head { display: flex; align-items: center; gap: 10px; }
+.ag-call__face { flex: none; width: 54px; height: 54px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--pink-l); box-shadow: 0 0 0 2.5px var(--ink), 2px 3px 0 2.5px var(--pink); }
+.ag-call__face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ag-call.is-speaking .ag-call__face { animation: ag-call-talk .22s ease-in-out infinite alternate; }
+@keyframes ag-call-talk { to { transform: translateY(-2px) rotate(-2deg) scale(1.04); } }
+.ag-call__id { flex: 1; min-width: 0; }
+.ag-call__name { font-size: 16px; font-weight: 800; line-height: 1.15; text-shadow: 1.5px 1.5px 0 rgba(238, 61, 132, .4); }
+.ag-call__line { font-size: 11.5px; font-weight: 600; opacity: .65; }
+.ag-call__live { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--mag); white-space: nowrap; }
+.ag-call__live i { width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: ag-guide-pulse 1.4s ease-out infinite alternate; }
+.ag-call__x { border: 0; background: none; padding: 0; width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer; transition: transform .2s; }
+.ag-call__x:hover { transform: rotate(90deg); }
+.ag-call__body { position: relative; margin-top: 10px; padding: 9px 11px 20px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 2px var(--ink); min-height: 74px; }
+.ag-call__you { font-size: 12px; font-weight: 600; opacity: .6; margin-bottom: 4px; }
+.ag-call__you:empty { display: none; }
+.ag-call__sub { font-size: 14.5px; font-weight: 600; line-height: 1.45; min-height: 1.45em; }
+.ag-call__sub.is-thinking::after { content: "· · ·"; letter-spacing: .2em; opacity: .5; animation: ag-call-dots 1s steps(3) infinite; }
+@keyframes ag-call-dots { 50% { opacity: .15; } }
+.ag-call__tr { position: absolute; right: 9px; bottom: 4px; font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--pink); opacity: .8; }
+.ag-call__bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.ag-call__mic { flex: none; width: 42px; height: 42px; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; background: var(--cream); box-shadow: inset 0 0 0 2px var(--ink), 2px 2px 0 var(--ink); }
+.ag-call__mic.is-on { background: var(--lemon); box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 4px rgba(238, 61, 132, .35); }
+.ag-call__form { flex: 1; display: flex; align-items: center; min-width: 0; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 2px var(--ink); padding: 3px 4px 3px 12px; }
+.ag-call__input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); padding: 6px 0; }
+.ag-call__input::placeholder { color: rgba(42, 39, 64, .45); }
+.ag-call__send { flex: none; border: 0; background: var(--ink); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.ag-call__send:hover { background: var(--pink); }
+
+/* ======================= "Peek at the future" (ui/future-toggle.js) ======================= */
+.ag-future { display: inline-flex; align-items: center; gap: 9px; border: 0; cursor: pointer; padding: 5px 7px 5px 6px; border-radius: 999px; font: inherit; color: var(--ink); text-align: left;
+  background: var(--cream); box-shadow: inset 0 0 0 2px var(--ink), 3px 3px 0 var(--pink); transition: transform .15s, background .2s; }
+.ag-future:hover:not([disabled]) { transform: translate(-1px, -1px); background: #fff; }
+.ag-future[disabled] { cursor: default; opacity: .65; }
+.ag-future__ic { display: grid; place-items: center; }
+.ag-future__lbl { display: flex; flex-direction: column; line-height: 1.15; }
+.ag-future__lbl b { font-size: 12.5px; font-weight: 800; }
+.ag-future__state { font-size: 11px; font-weight: 600; opacity: .65; }
+.ag-future__track { position: relative; width: 44px; height: 24px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 2px var(--ink); margin-left: 4px; transition: background .25s; }
+.ag-future__track i { position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); transition: transform .3s cubic-bezier(.3, 1.5, .5, 1), background .25s; }
+.ag-future.is-on .ag-future__track { background: var(--pink); }
+.ag-future.is-on .ag-future__track i { transform: translateX(20px); background: var(--lemon); box-shadow: 0 0 0 2px var(--ink); }
+.ag-future.is-on .ag-future__state { color: var(--mag); opacity: 1; }
+.ag-future.is-busy .ag-future__track i { animation: ag-call-talk .3s infinite alternate; }
+.ag-future--dock { position: absolute; left: var(--ag-gut); bottom: var(--ag-gut); z-index: 13; pointer-events: auto; }
+.ag-future--dock[hidden] { display: none; }
+.ag-ui.is-guide-pill .ag-future--dock, .ag-ui.is-guiding .ag-future--dock, .ag-ui.is-title .ag-future--dock, .ag-ui.is-cinema .ag-future--dock { display: none; }
+
+/* ======================= a letter: two choices, a quiet "not now", and a written reply with its thread ======================= */
+.ag-mread__replies { align-items: center; }
+.ag-mread__nope, .ag-reply.is-quiet span { font-size: 12px !important; font-weight: 600; opacity: .6; background: none !important; box-shadow: none !important; padding: 4px 4px !important; text-decoration: underline; text-underline-offset: 3px; }
+.ag-mread__nope { border: 0; background: none; cursor: pointer; color: var(--ink); margin-left: 4px; }
+.ag-mread__nope:hover { opacity: 1; color: var(--pink); }
+.ag-mread__writewrap { flex: none; margin: 10px 20px 0 18px; }
+.ag-mread__write { display: flex; align-items: center; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 2px var(--ink); padding: 3px 4px 3px 12px; }
+.ag-mread__winput { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); padding: 6px 0; }
+.ag-mread__winput::placeholder { color: rgba(42, 39, 64, .45); font-weight: 500; }
+.ag-mread__wsend { flex: none; border: 0; background: var(--ink); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.ag-mread__wsend:hover { background: var(--pink); }
+.ag-mread__thread { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ag-mread__thread[hidden] { display: none; }
+.ag-mread__msg { align-self: flex-start; max-width: 88%; padding: 6px 10px 7px; border-radius: 12px 12px 12px 4px; background: var(--cream); box-shadow: inset 0 0 0 1.5px var(--ink); font-size: 13px; line-height: 1.4; }
+.ag-mread__msg b { display: block; font-size: 11px; font-weight: 800; color: var(--mag); }
+.ag-mread__msg.is-me { align-self: flex-end; border-radius: 12px 12px 4px 12px; background: var(--lemon); }
+.ag-mread__msg.is-me b { color: var(--ink); }
+.ag-mread__msg.is-wait span { letter-spacing: .2em; animation: ag-call-dots 1s steps(3) infinite; }
+/* the onboarding's red dot (mail-dots.teach): bigger, pulsing, a ring that says "click me" */
+.ag-maildot.is-teach { width: 44px; height: 44px; margin: -22px 0 0 -22px; z-index: 2; }
+.ag-maildot.is-teach .ag-icon svg { width: 30px; height: 30px; }
+.ag-maildot.is-teach::after { content: ""; position: absolute; inset: 2px; border-radius: 50%; box-shadow: 0 0 0 3px var(--red); animation: ag-ring-out 1.2s ease-out infinite; pointer-events: none; }
+.ag-maildot.is-teach .ag-icon { animation: ag-dot-pop .5s cubic-bezier(.3, 1.6, .5, 1) both, ag-dot-teach 1s ease-in-out .5s infinite; }
+@keyframes ag-dot-teach { 50% { scale: 1.25; translate: 0 -3px; } }
+/* 13:55 the space trip step (other planets): the card wears GREEN corners (halftone + offset drum) */
+.ag-guide[data-id="planets"] .ag-guide__card {
+  background: radial-gradient(circle at 100% 0, rgba(255, 248, 236, 0) 0, rgba(255, 248, 236, 0) 34px, var(--pop-card) 104px),
+    radial-gradient(circle at 0 100%, rgba(255, 248, 236, 0) 0, rgba(255, 248, 236, 0) 30px, var(--pop-card) 96px),
+    radial-gradient(circle, rgba(46, 170, 96, .6) 1.3px, transparent 1.8px) 0 0 / 7px 7px, var(--pop-card) !important;
+  box-shadow: 0 0 0 2.5px var(--ink), 0 0 0 5.5px var(--cream), 6px 7px 0 5.5px #3fb36b !important; }

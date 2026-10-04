@@ -1,0 +1,9 @@
+node_modules/
+.env
+shots/
+server/data/assets/*.json
+web/trailer/out
+.vercel
+.env*
+.claude/
+.vercelignore

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trees lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<style>
+  .plate { position: fixed; left: max(18px, 3.4vmin); top: calc(max(18px, 3.4vmin) + env(safe-area-inset-top, 0px)); z-index: 2; font-family: "Instrument Serif", Georgia, serif; color: var(--ink); pointer-events: none; }
+  .plate h1 { margin: 0; font-weight: 400; font-size: 30px; line-height: 1; }
+  .plate p { margin: 6px 0 0; font-size: 16px; font-style: italic; opacity: .78; }
+  .tags { position: fixed; inset: 0; pointer-events: none; font-family: "Instrument Serif", Georgia, serif; }
+  .tag { position: absolute; transform: translate(-50%, 0); color: var(--ink); font-size: 15px; font-style: italic; white-space: nowrap; opacity: .82;
+    padding: 1px 8px 2px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 78%, transparent); }
+  .tags[hidden] { display: none; }
+</style>
+</head>
+<body>
+<!-- Trees lab: web/js/buildings/trees.js through the real Red arch gouache engine on cream paper.
+     ?view=bird (default; the game's leader camera, pitch 0.86 like create.html) | eye | top
+     ?set=engine (default: createTrees directly) | api (the SAME trees as the game builds them, through the live
+     build api: api.pine / api.tree / api.olive / api.cypress (the kit's) / api.bush (the kit's) / api.shrub, and
+     the grove + copse prefabs)   ?ground=plain (the lab's ground without the world's cobalt shadows)
+     ?yaw= ?pitch= ?dist= (multiplier)  ?nofolk ?notags  ?only=groves|row   #raw #riso
+     window.__trees = { ready, trees, stats() } -->
+<div class="plate"><h1>Trees</h1><p id="sub">umbrella pine · cypress · olive · round tree · shrub · groves</p></div>
+<div class="tags" id="tags"></div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { createKit } from './js/paint/kit.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { mountPaintUI } from './js/paint/ui.js';
+import { createBuildApi, normalise } from './js/buildings/api.js';
+import { createLibrary } from './js/buildings/library.js';
+import { createTrees } from './js/buildings/trees.js';
+
+const q = new URLSearchParams(location.search);
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camBase = new THREE.Vector3(0, 40, 46);
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.5, 1600);
+const ctx = createContext({ renderer, scene, camera, seed: 7 });
+const { V, R } = ctx;
+const kit = createKit(ctx);
+const backdrop = createBackdrop(ctx, { camBase });
+const api = createBuildApi(ctx, kit, { keyDir: backdrop.KEY_DIR });
+const lib = createLibrary(ctx, kit, { api });
+const trees = createTrees(ctx, kit, { seed: +(q.get('seed') || 5) });
+
+// cream paper ground (as gallery.html / create.html)
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 300), new THREE.MeshLambertMaterial({ color: 0xe9dcc8 }));
+ground.rotation.x = -Math.PI / 2; ground.position.z = 60; ground.receiveShadow = true; scene.add(ground);
+// the world's ground shadows (web/js/world/ground.js, verbatim numbers): what the key light does not reach goes
+// cobalt / violet (ART_DIRECTION §1, mb 4). ?ground=plain shows the bare Lambert's grey-beige instead.
+if (q.get('ground') !== 'plain') ground.material.onBeforeCompile = sh => {
+  sh.uniforms.uShadeMul = { value: new THREE.Vector3(0.62, 0.68, 1.02) };
+  sh.uniforms.uShadeAdd = { value: new THREE.Color('#25306e').multiplyScalar(0.5) };
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', '#include <common>\n uniform vec3 uShadeMul, uShadeAdd;')
+    .replace('#include <envmap_fragment>', `#include <envmap_fragment>
+    { float shade = 1.0 - smoothstep(0.22, 0.88, getShadowMask());
+      outgoingLight = mix(outgoingLight, outgoingLight * uShadeMul + uShadeAdd, shade * 0.72); }`);
+};
+
+// a few folk for scale, wandering the front of the lab
+const HALF = 20;
+const nav = {
+  obstacles: [], spots: [[-6, 9], [4, 9], [0, 10], [10, 8]], closeFocus: V(0, 1.1, 8),
+  pickTarget(a) { a.path = [V(R(-HALF, HALF), 0, R(7, 12))]; },
+  bounds(p) { p.x = Math.max(-HALF, Math.min(HALF, p.x)); p.z = Math.max(6, Math.min(13, p.z)); },
+  extraPush() {}, flyTarget(f) { f.route = [V(R(-12, 12), R(4, 8), R(-6, 8))]; }, floatTarget(f) { f.route.push(V(R(-12, 12), R(5, 8), R(-6, 8))); },
+  flyPush() {}, onArrive() {}
+};
+const folk = createFolk(ctx, backdrop, nav);
+const crowd = q.has('nofolk') ? [] : [folk.make.puffer(0), folk.make.pip(1), folk.make.drop(2), folk.make.loaf(3), folk.make.puffer(4)];
+folk.update(0.016, 0);
+
+const painter = createPainter(ctx, folk, { framing: (cam, w, h) => { cam.aspect = w / h; cam.fov = w / h < 1 ? 52 : 38; } });
+addEventListener('resize', () => painter.resize());
+mountPaintUI(painter, { closeUp: false });
+if (!/riso|raw|gouache/.test(location.hash)) painter.setMode(1);   // gouache
+painter.resize();
+
+// ---------- the exhibits ----------
+const API = q.get('set') === 'api' || q.get('set') === 'old';
+const tagsEl = document.getElementById('tags'); if (q.has('notags')) tagsEl.hidden = true;
+const shown = [];
+// every exhibit goes through the Build API's own normalise() -> finish(): the same re-bake / proxy hand-off
+// the library applies to prefabs, so what you see here is what a prefab using these trees will look like
+function exhibit(make, label, x, z, turn = 0) {
+  const obj = make();
+  let wrap;
+  try { wrap = normalise(api, obj, { name: label, turn }); } catch (e) { console.error(label, e); wrap = obj; }
+  wrap.position.set(x, 0, z);   // normalise centres the footprint; put it back where the lab wants it
+  scene.add(wrap);
+  const el = document.createElement('div'); el.className = 'tag'; el.textContent = label; tagsEl.append(el);
+  shown.push({ obj: wrap, el, label }); return wrap;
+}
+const only = q.get('only');
+const ROW_Z = 2.5, GROVE_Z = -10;
+// ?set=api: the calls the game makes (prefab scale: a house is 4.4 m), through the live build api
+const row = API ? [
+  ['api.pine', () => api.pine({ h: 6.2 }), -15],
+  ['api.pine leanTo', () => api.pine({ h: 4.3, r: 1.3, lean: 0.6, leanTo: [-1, 0.3] }), -10.5],
+  ['api.cypress (kit)', () => api.cypress({ h: 5.2, w: 0.62 }), -7],
+  ['api.olive', () => api.tree({ kind: 'olive', h: 2.8, lean: 0.4 }), -4],
+  ['api.oak', () => api.tree({ kind: 'oak', s: 0.85 }), 0],
+  ['api.lemon', () => api.tree({ kind: 'lemon' }), 3.6],
+  ['api.orange', () => api.tree({ kind: 'orange' }), 6.2],
+  ['api.pine s 0.5', () => api.tree({ kind: 'pine', s: 0.5 }), 8.8],
+  ['api.tree cypress', () => api.tree({ kind: 'cypress', h: 4.4 }), 10.4],
+  ['api.shrub', () => api.shrub({ r: 0.7, h: 0.8, ramp: api.ramps.OLIVE }), 12.4],
+  ['api.bush (kit)', () => api.bush({ s: 0.6, spread: 1.0, lobes: 3, h: 1.6, flowers: api.ramps.PINK, bloom: 0.7 }), 15]
+] : [
+  ['umbrella pine', () => trees.umbrellaPine({ h: 9.5, tiers: 2, dir: 0.4 }), -15],
+  ['umbrella pine', () => trees.umbrellaPine({ h: 7, tiers: 1, dir: 2.6 }), -8.5],
+  ['cypress', () => trees.cypress({ h: 10.5 }), -4.2],
+  ['cypress', () => trees.cypress({ h: 7.5 }), -2],
+  ['olive', () => trees.olive({ h: 5.6 }), 2.4],
+  ['olive', () => trees.olive({ h: 4.4 }), 7],
+  ['round tree', () => trees.roundTree({ h: 7 }), 11.4],
+  ['shrub', () => trees.shrub({ r: 1.0, h: 1.3 }), 15],
+  ['flowering shrub', () => trees.shrub({ r: 0.9, h: 1.6, lobes: 3, flowers: 'PINK', bloom: 0.7 }), 17.4],
+  ['shrub', () => trees.shrub({ r: 0.7, h: 0.9, lobes: 2, ramp: 'OLIVE' }), 19.4]
+];
+
+async function main() {
+  if (API) await lib.load();
+  if (only !== 'groves') row.forEach(([label, make, x]) => exhibit(make, label, x, ROW_Z));
+  if (only !== 'row') {
+    if (API) {
+      [[-8, 'grove', 'grove prefab'], [9, 'copse', 'copse prefab']].forEach(([x, id, label], i) => {
+        const obj = lib.create(id, { variant: i }); obj.position.set(x, 0, GROVE_Z); scene.add(obj);
+        const el = document.createElement('div'); el.className = 'tag'; el.textContent = label; tagsEl.append(el); shown.push({ obj, el, label });
+      });
+    } else {
+      exhibit(() => trees.grove({ n: 12, seed: 3 }), 'grove of 12', -8, GROVE_Z);
+      exhibit(() => trees.grove({ n: 6, seed: 11, mix: { pine: 1, olive: 4, cypress: 1, round: 0 } }), 'olive grove of 6', 10, GROVE_Z);
+    }
+  }
+  // folk stand in front of the row
+  crowd.forEach((a, i) => { a.pos.set(-10 + i * 5.2 + R(-1, 1), a.pos.y, 7.5 + (i % 2) * 1.6); a.root.position.copy(a.pos); a.wait = 4 + i * 2; });
+  painter.markDirty();
+  window.__trees.ready = true;
+}
+
+// ---------- camera ----------
+const view = q.get('view') || 'bird';
+const rig = view === 'eye' ? { yaw: -0.08, pitch: 0.1, dist: 34, target: V(0, 3.6, -2) }
+  : view === 'top' ? { yaw: 0, pitch: 1.42, dist: 52, target: V(1, 0, -3) }
+  : { yaw: -0.18, pitch: 0.86, dist: 50, target: V(-0.5, 0, -5.5) };
+if (only === 'groves') { rig.target.set(0.5, view === 'eye' ? 3.5 : 0, GROVE_Z); rig.dist *= 0.62; }
+if (only === 'row') { rig.target.set(1.5, view === 'eye' ? 4.6 : 0, ROW_Z); rig.dist *= view === 'eye' ? 1 : 0.8; }
+if (q.get('yaw')) rig.yaw = +q.get('yaw');
+if (q.get('pitch')) rig.pitch = +q.get('pitch');
+if (q.get('dist')) rig.dist *= +q.get('dist');
+function placeCam() {
+  const { yaw, pitch, dist, target } = rig;
+  camera.position.set(target.x + Math.sin(yaw) * Math.cos(pitch) * dist, target.y + Math.sin(pitch) * dist, target.z + Math.cos(yaw) * Math.cos(pitch) * dist);
+  camera.lookAt(target);
+}
+{ let drag = null; const el = renderer.domElement;
+  el.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, yaw: rig.yaw, pitch: rig.pitch }; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => { if (!drag) return; rig.yaw = drag.yaw - (e.clientX - drag.x) * 0.006; rig.pitch = Math.max(0.04, Math.min(1.5, drag.pitch + (e.clientY - drag.y) * 0.004)); painter.markDirty(); });
+  el.addEventListener('pointerup', () => { drag = null; });
+  el.addEventListener('wheel', e => { rig.dist = Math.max(6, Math.min(160, rig.dist * Math.exp(e.deltaY * 0.001))); painter.markDirty(); }, { passive: true });
+}
+const tmp = new THREE.Vector3(), box = new THREE.Box3();
+function tags() {
+  shown.forEach(({ obj, el }) => {
+    box.setFromObject(obj);
+    tmp.set(obj.position.x, 0, box.isEmpty() ? obj.position.z : box.max.z + 0.5).project(camera);
+    el.style.left = ((tmp.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - tmp.y) / 2 * innerHeight + 4) + 'px';
+    el.style.display = tmp.z < 1 ? '' : 'none';
+  });
+}
+function stats() {
+  return shown.map(({ obj, label }) => {
+    let draw = 0, proxies = 0, tris = 0;
+    obj.traverse(o => { if (!o.isMesh) return; const n = o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+      if (o.userData.agoraLine) proxies++; else { draw++; tris += n * (o.isInstancedMesh ? o.count : 1); } });
+    const s = obj.userData.agora && obj.userData.agora.size;
+    return { label, drawMeshes: draw, proxies, tris: tris | 0, size: s && [s.w, s.h, s.d].map(v => +v.toFixed(1)) };
+  });
+}
+window.__trees = { ready: false, trees, api, ctx, painter, scene, rig, shown, stats };
+main().catch(e => { console.error(e); document.getElementById('sub').textContent = 'error: ' + e.message; window.__trees.error = e.message; window.__trees.ready = true; });
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  folk.update(dt, t);
+  painter.frame(dt, t, tt => { placeCam(); backdrop.update(tt); tags(); });
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

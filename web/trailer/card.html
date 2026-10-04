@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALOUD trailer: title card</title>
+<!--
+  Title-card renderer for the trailer (docs/trailer.md). A deterministic `__shot` scene like any other:
+    card.html?text=ALOUD&sub=A%20civilisation%2C%20spoken%20aloud&dur=6&bg=night
+  params: text (main line; "|" = line break)  sub (second line, Montserrat)  face=melodrama|montserrat|sentient  (main line face)
+          size=<px>  bg=night|clear|paper  dur=<s>  fin=<s> fout=<s> (fades)  lb=1 (2.39:1 letterbox bars)
+          ink=dark (night-blue text for a light frame)  y=<px> (offset from the centre)  italic=1 (italic main line)  weight=<100..900> (Montserrat line weight)  grain=0 (no grain on the letters)  t=<s> (a still)
+  Melodrama semibold 600 for ALOUD (ART_DIRECTION §23, the game's title: uppercase, .2em tracking), Montserrat (the game's UI
+  face, aloud.css) for lines and the sub. All text is white on night blue.
+  With bg=clear the page is transparent (captured as RGBA PNG and overlaid on footage by tests/record/trailer.mjs).
+-->
+<style>
+  @font-face { font-family: "Title Melodrama"; src: url(../assets/fonts/Melodrama-600.woff2) format("woff2"); font-weight: 600; font-display: block; }
+  @font-face { font-family: Montserrat; font-style: normal; font-weight: 100 900; font-display: block; src: url(../assets/fonts/Montserrat-latin.woff2) format("woff2"); }
+  @font-face { font-family: Montserrat; font-style: italic; font-weight: 100 900; font-display: block; src: url(../assets/fonts/Montserrat-Italic-latin.woff2) format("woff2"); }
+  @font-face { font-family: Sentient; src: url(../assets/fonts/Sentient-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: block; }
+  @font-face { font-family: Sentient; src: url(../assets/fonts/Sentient-Italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: Sentient; src: url(../assets/fonts/Sentient-Medium.woff2) format("woff2"); font-weight: 500; font-style: normal; font-display: block; }
+  :root {
+    --night: #060814;            /* the game's night (title.css pool of night rgba(4,6,18) over the planet's 0x05060d) */
+    --paper: #efe6d0;
+    --white: #f4f1ea;            /* the game's title white (title.css #f4f1ea) */
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -.9 1.28'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--night); }
+  body.clear { background: transparent; }
+  body.paper { background: var(--paper); }
+  body.paper .card { color: #1a1b2a; }
+  .card { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px;
+    color: var(--white); text-align: center; will-change: opacity, transform; }
+  .main { margin: 0; font-family: "Title Melodrama", Georgia, serif; font-weight: 600; text-transform: uppercase; line-height: 1;
+    font-size: 150px; letter-spacing: .3em; padding-left: .3em; /* the tracking's trailing space, centred */ white-space: nowrap; font-synthesis: none; }
+  .main.grain { -webkit-mask-image: var(--grain); mask-image: var(--grain); -webkit-mask-size: 160px; mask-size: 160px; }
+  .main.sentient { font-family: Sentient, Georgia, serif; font-weight: 400; text-transform: none; letter-spacing: .01em; padding-left: 0; line-height: 1.18; white-space: normal; max-width: 1380px; font-size: 72px; }
+  .main.sentient.italic { font-style: italic; }
+  .main.montserrat { font-family: Montserrat, system-ui, sans-serif; font-weight: 300; text-transform: none; letter-spacing: -.005em; padding-left: 0;
+    line-height: 1.22; white-space: normal; max-width: 1500px; font-size: 72px; font-feature-settings: "kern", "liga"; }
+  .main.montserrat.italic { font-style: italic; }
+  body.clear .main, body.clear .sub { text-shadow: 0 2px 24px rgba(8, 10, 22, .55), 0 1px 3px rgba(8, 10, 22, .45); }
+  /* ink=dark: an over-footage line on a light, sunlit frame (the cream land): night-blue ink with a soft paper halo */
+  body.clear.ink-dark .card { color: #1d2036; }
+  body.clear.ink-dark .main, body.clear.ink-dark .sub { text-shadow: 0 0 28px rgba(250, 244, 226, .75), 0 0 6px rgba(250, 244, 226, .6); }
+  .sub { margin: 0; font-family: Montserrat, system-ui, sans-serif; font-weight: 500; font-size: 24px; letter-spacing: .42em; padding-left: .42em; text-transform: uppercase; opacity: .78; }
+  .sub.plain { text-transform: none; letter-spacing: .02em; padding-left: 0; font-size: 36px; font-weight: 300; }
+  .rule { width: 72px; height: 1px; background: currentColor; opacity: .5; }
+  .bar { position: absolute; left: 0; width: 100%; background: #000; display: none; }
+  .bar.top { top: 0; } .bar.bottom { bottom: 0; }
+  body.lb .bar { display: block; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h1 class="main" id="main"></h1>
+    <div class="rule" id="rule"></div>
+    <p class="sub" id="sub"></p>
+  </div>
+  <div class="bar top"></div><div class="bar bottom"></div>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const get = (k, d) => q.has(k) ? q.get(k) : d;
+  const text = get('text', 'ALOUD'), sub = get('sub', ''), face = get('face', 'melodrama');
+  const dur = +get('dur', 4), fin = +get('fin', 0.8), fout = +get('fout', 0.8);
+  const bg = get('bg', 'night');
+  document.body.classList.toggle('clear', bg === 'clear');
+  if (bg === 'clear') document.documentElement.style.background = 'transparent';   // the html background would otherwise show through
+  document.body.classList.toggle('paper', bg === 'paper');
+  document.body.classList.toggle('lb', get('lb', '0') === '1');
+  document.body.classList.toggle('ink-dark', get('ink', '') === 'dark');
+  const yOff = +get('y', 0);   // px: move the whole card up (<0) or down from the centre
+  const barH = Math.round((1080 - 1920 / 2.39) / 2);
+  document.querySelectorAll('.bar').forEach(b => b.style.height = barH + 'px');
+
+  const main = document.getElementById('main'), subEl = document.getElementById('sub'), rule = document.getElementById('rule');
+  main.innerHTML = text.split('|').map(s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))).join('<br>');
+  main.classList.toggle('sentient', face === 'sentient');
+  main.classList.toggle('montserrat', face === 'montserrat');
+  if (q.has('weight')) main.style.fontWeight = q.get('weight');
+  main.classList.toggle('italic', get('italic', '0') === '1');
+  main.classList.toggle('grain', get('grain', '1') === '1' && face === 'melodrama');
+  if (q.has('size')) main.style.fontSize = (+q.get('size')) + 'px';
+  subEl.textContent = sub;
+  subEl.classList.toggle('plain', get('subplain', face !== 'melodrama' ? '1' : '0') === '1');
+  if (!sub) { subEl.style.display = 'none'; rule.style.display = 'none'; }
+
+  await document.fonts.load('600 150px "Title Melodrama"').catch(() => {});
+  await document.fonts.load('400 40px Sentient').catch(() => {});
+  await document.fonts.load('300 40px Montserrat').catch(() => {});
+  await document.fonts.load('500 40px Montserrat').catch(() => {});
+  await document.fonts.load('italic 300 40px Montserrat').catch(() => {});
+  await document.fonts.load('italic 400 40px Sentient').catch(() => {});
+  await document.fonts.ready;
+
+  const card = document.getElementById('card');
+  const ease = x => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
+  function seek(t) {
+    t = Math.max(0, Math.min(dur, t));
+    const a = Math.min(fin > 0 ? ease(t / fin) : 1, fout > 0 ? ease((dur - t) / fout) : 1);
+    card.style.opacity = a.toFixed(4);
+    // a slow, barely-there settle: the tracking relaxes and the card eases a hair closer over its life
+    const u = t / dur;
+    if (face === 'melodrama') main.style.letterSpacing = main.style.paddingLeft = (0.26 - 0.06 * u).toFixed(4) + 'em';   // settles onto the game's .2em (padding = the trailing tracking, centred)
+    card.style.transform = `translateY(${yOff}px) scale(${(1 + 0.012 * u).toFixed(5)})`;
+  }
+  const shot = { duration: dur, done: false, seek, play() {
+    const t0 = performance.now(); shot.done = false;
+    const tick = () => { const t = (performance.now() - t0) / 1000; seek(t); if (t < dur) requestAnimationFrame(tick); else shot.done = true; };
+    requestAnimationFrame(tick);
+  } };
+  seek(+get('t', q.has('t') ? 0 : fin));
+  window.__shot = shot;
+  if (q.has('play')) shot.play();
+})();
+</script>
+</body>
+</html>

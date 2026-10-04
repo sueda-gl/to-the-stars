@@ -1,0 +1,23 @@
+{
+  "name": "agora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AGORA: a civilisation you speak into being. Node 22 server + static web.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test \"tests/server/**/*.test.mjs\"",
+    "test:server": "node --test \"tests/server/**/*.test.mjs\"",
+    "test:sim": "node --test \"tests/sim/*.test.mjs\"",
+    "live-smoke": "node scripts/live-smoke.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.12.0"
+  }
+}

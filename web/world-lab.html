@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>World lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+<style>
+  .lab { position: fixed; left: max(18px, 3.4vmin); top: max(18px, 3.4vmin); display: flex; flex-wrap: wrap; gap: 6px; max-width: min(640px, calc(100vw - 36px));
+    font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif; }
+  .lab button { font: inherit; font-size: 16px; line-height: 1; color: var(--ink); cursor: pointer; border: 0; border-radius: 999px; padding: 8px 14px 9px;
+    background: color-mix(in srgb, var(--paper) 88%, transparent); box-shadow: 0 0 0 1px rgba(61, 85, 136, .25); }
+  .lab button:hover { background: var(--ink); color: var(--paper); font-style: italic; }
+  .lab button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .lab-note { position: fixed; left: max(18px, 3.4vmin); bottom: calc(max(18px, 3.4vmin) + env(safe-area-inset-bottom, 0px)); font-family: "Instrument Serif", Georgia, serif;
+    font-style: italic; font-size: 15px; color: var(--ink); padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--paper) 82%, transparent); }
+  body.shot .lab, body.shot .lab-note, body.shot .editions, body.shot .tweaks-toggle { display: none; }
+</style>
+</head>
+<body>
+<!-- The world module on its own: the real paint engine, a createGame() sim, createWorld, a dozen folk wandering
+     the plot through makeNav, standing on the relief. #gouache #raw · ?view=leader|eye|top · ?bloom=0|1|full ·
+     ?intro=sky|globe · ?shot=1 hides the lab chrome · ?seed= · ?left=none (the game's setting: left belongs to marks) -->
+<div class="lab" role="group" aria-label="World lab">
+  <button data-do="sky">Descent</button>
+  <button data-do="leader">Leader view</button>
+  <button data-do="eye">Eye view</button>
+  <button data-do="top">Top view</button>
+  <button data-do="town">Build a town</button>
+  <button data-do="full">Full bloom</button>
+  <button data-do="globe">Descent from the globe</button>
+  <button data-do="bloom">Bloom somewhere</button>
+  <button data-do="place">Place a building</button>
+  <button data-do="close">Up close</button>
+  <button data-do="back">Back</button>
+  <button data-do="n1">Drop Riviera</button>
+  <button data-do="n2">Loaf Republic</button>
+  <button data-do="n3">Flit Sky-hold</button>
+  <button data-do="home">Home</button>
+  <button data-do="dress">Without trees + greens</button>
+</div>
+<div class="lab-note">Drag or right-drag to pan · Alt-drag or Q/E to turn, R/F to tilt · wheel to zoom · WASD to move</div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createKit } from './js/paint/kit.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { mountPaintUI } from './js/paint/ui.js';
+import { createGame } from './js/sim/index.js';
+import * as geography from './js/globe/geography.js';
+import { createWorld, worldCamBase, makeNav, VIEWS } from './js/world/world.js';
+
+const Q = new URLSearchParams(location.search);
+if (Q.get('shot')) document.body.classList.add('shot');
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.5, 1400);
+const ctx = createContext({ renderer, scene, camera, seed: 11 });
+const { V } = ctx;
+const kit = createKit(ctx);
+const backdrop = createBackdrop(ctx, { camBase: worldCamBase() });
+const game = createGame({ seed: +(Q.get('seed') || 7), name: 'Agora', offline: true });
+const viewName = VIEWS[Q.get('view')] ? Q.get('view') : 'leader';
+// the lab has no marks, so a left drag pans here too (the game keeps left for marks: input.left = 'none')
+// ?dress=0: the old map without the §21 dressing (trees + green spots), to compare · ?autobloom=0: no colour bloom
+// round finished buildings (the game's §9 rule)
+const world = createWorld(ctx, kit, game, { geography, backdrop, view: VIEWS.leader, input: { left: Q.get('left') || 'pan' },
+  dressing: Q.get('dress') !== '0', autoBloom: Q.get('autobloom') !== '0' });
+if (viewName !== 'leader') world.rig.setPose({ ...VIEWS[viewName] });
+const nav = makeNav(game, world);
+const folk = createFolk(ctx, backdrop, nav);
+// a dozen folk, the sim's settler mix
+const mix = [['puffer', 3], ['loaf', 2], ['drop', 2], ['pip', 2], ['scoot', 1], ['flit', 1], ['floatie', 1]];
+const all = [];
+for (const [sp, n] of mix) for (let i = 0; i < n; i++) all.push(folk.make[sp](i));
+for (const f of [...folk.flits, ...folk.floaties]) { const p = nav.freePoint(game.state.centre, 8); f.pos.set(p.x, f.pos.y, p.z); f.root.position.copy(f.pos); }
+folk.update(0.016, 0);
+const painter = createPainter(ctx, folk, { framing: world.framing });
+addEventListener('resize', () => painter.resize());
+const ui = mountPaintUI(painter, { closeUp: false });
+painter.resize();
+
+// ---------- buildings: the prefab library if it's there, else plain painted boxes ----------
+let lib = null;
+(async () => {
+  try { const m = await import('./js/buildings/library.js'); lib = m.createLibrary(ctx, kit); await lib.load(); }
+  catch (e) { console.warn('lab: no building library, using boxes', e); lib = null; }
+})();
+const visuals = new Map();
+function boxHouse(b) {
+  const g = new THREE.Group(), w = b.footprint.w, d = b.footprint.d, h = 2.6 + (w % 2);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: 0xe9d5b5 }));
+  wall.position.y = h / 2; wall.castShadow = wall.receiveShadow = true; g.add(wall);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.hypot(w, d) / 2 * 1.05, h * 0.7, 4), new THREE.MeshLambertMaterial({ color: 0xc23a2c }));
+  roof.position.y = h + h * 0.35; roof.rotation.y = Math.PI / 4; roof.castShadow = true; g.add(roof);
+  return g;
+}
+function visualFor(b) {
+  if (visuals.has(b.id)) return;
+  let obj = null;
+  if (lib) { try { obj = lib.create(b.kind, { variant: visuals.size, footprint: b.footprint }); } catch (e) { obj = null; } }
+  if (!obj) obj = boxHouse(b);
+  obj.position.set(b.x, world.siteY(b), b.z); obj.rotation.y = b.rot || 0; scene.add(obj); visuals.set(b.id, obj);
+}
+game.on('building:site', e => visualFor(e.building));
+const KINDS = ['house', 'windmill', 'house', 'bakery', 'well', 'house', 'tavern', 'granary'];
+let kindI = 0;
+function place(kind = KINDS[kindI++ % KINDS.length], near = null) {
+  const spot = game.findSpot(kind, near, near ? { mode: 'near' } : {});
+  if (!spot) return null;
+  const b = game.placeBuilding(kind, spot);
+  setTimeout(() => game.completeBuilding(b), 500);
+  return b;
+}
+
+// ---------- the buttons ----------
+// the folk stand on the relief: after folk.update, lift each one by the ground under it (as agents.js does)
+const crowd = () => [...folk.creatures, ...folk.hoppers, ...folk.drops, ...folk.scoots, ...folk.flits, ...folk.pips, ...folk.floaties];
+function standFolk() {
+  for (const a of crowd()) {
+    const gy = world.groundY(a.pos.x, a.pos.z);
+    if (!gy) continue;
+    a.root.position.y += gy;
+    (a.legs || []).forEach(l => { l.leg.position.y += gy; l.foot.position.y += gy; });
+    if (a.blob) a.blob.position.y += gy;
+  }
+}
+function town(n = 7) { const out = []; for (let i = 0; i < n; i++) { const b = place(); if (b) out.push(b); } return out; }
+async function full() {
+  town(14);
+  await new Promise(r => setTimeout(r, 700));
+  world.setWorldBloom(1, { ms: 2600 });
+}
+const ACT = {
+  sky: () => world.descent({ from: 'sky' }),
+  leader: () => world.view('leader'), eye: () => world.view('eye'), top: () => world.view('top'),
+  town: () => town(), full,
+  globe: () => world.descent({ from: 'globe' }),
+  bloom: () => { const p = nav.freePoint(null); return world.bloom(p.x, p.z, 5 + Math.random() * 4); },
+  place: () => { const b = place(); if (b) world.focus(b.x, b.z, { dist: 46 }); },
+  close: () => { const b = game.state.buildings.find(o => o.status === 'done'); const c = b || game.state.centre; folk.setCloseUp(true); return world.upClose({ x: c.x, z: c.z + (b ? b.footprint.d / 2 + 2 : 0) }); },
+  back: () => { folk.setCloseUp(false); return world.back(); },
+  n1: () => world.visit('n1'), n2: () => world.visit('n2'), n3: () => world.visit('n3'),
+  home: () => world.home(),
+  // compare the §21 dressing with the old map (reloads with / without ?dress=0)
+  dress: () => { const q = new URLSearchParams(location.search); if (q.get('dress') === '0') q.delete('dress'); else q.set('dress', '0'); location.search = q.toString(); }
+};
+{ const b = document.querySelector('[data-do="dress"]'); if (b && Q.get('dress') === '0') b.textContent = 'With trees + greens'; }
+document.querySelectorAll('.lab button').forEach(b => b.addEventListener('click', () => ACT[b.dataset.do]()));
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let manual = false;
+function frame() {
+  if (!manual) {
+    const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime * (ctx.reduceMotion ? 0.15 : 1);
+    world.update(dt, t);
+    folk.update(dt * (ctx.reduceMotion ? 0.4 : 1), t);
+    standFolk();
+    if (lib) lib.update && lib.update(t);
+    painter.frame(dt, t, tt => world.beforeDraw(tt));
+  }
+  requestAnimationFrame(frame);
+}
+const intro = Q.get('intro');
+if (intro === 'sky' || intro === 'globe') world.descent({ from: intro });
+const bloomQ = Q.get('bloom');
+world.ready.then(() => { if (bloomQ === '1') town(); else if (bloomQ === 'full') full(); });
+frame();
+
+// ---------- headless hooks ----------
+let simT = 0;
+window.__lab = {
+  world, game, folk, painter, ctx, nav, ui, ACT, place, town, full, standFolk, visuals, VIEWS, get lib() { return lib; },
+  ready: world.ready,
+  // headless nav check: run the folk, count anyone off the plot, in the lake or inside a building's footprint
+  navCheck(steps = 3600, dt = 1 / 30) {
+    manual = true;
+    const P = game.state.plot, walkers = [...folk.creatures, ...folk.hoppers, ...folk.drops, ...folk.scoots, ...folk.pips];
+    const start = walkers.map(a => a.pos.clone()), moved = walkers.map(() => 0);
+    let off = 0, wet = 0, inside = 0, arrivals = 0, samples = 0;
+    const was = nav.onArrive; nav.onArrive = a => { arrivals++; was(a); };
+    for (let i = 0; i < steps; i++) {
+      simT += dt; const prev = walkers.map(a => a.pos.clone());
+      world.update(dt, simT); folk.update(dt, simT);
+      walkers.forEach((a, k) => {
+        moved[k] += a.pos.distanceTo(prev[k]); samples++;
+        if (a.pos.x < P.x0 || a.pos.x > P.x1 || a.pos.z < P.z0 || a.pos.z > P.z1) off++;
+        if (geography.inLake(a.pos.x, a.pos.z)) wet++;
+        for (const b of game.state.buildings) if (Math.abs(a.pos.x - b.x) < b.footprint.w / 2 - 0.3 && Math.abs(a.pos.z - b.z) < b.footprint.d / 2 - 0.3) inside++;
+      });
+    }
+    nav.onArrive = was;
+    const minMoved = Math.min(...moved);
+    return { ok: off === 0 && wet / samples < 0.002 && inside / samples < 0.01 && minMoved > 5 && arrivals > 0,
+      walkers: walkers.length, samples, off, wet, inside, arrivals, minMoved: +minMoved.toFixed(1), obstacles: nav.obstacles.length };
+  },
+  // take over the clock: step everything by `sec` in fixed dt, then paint one frame
+  manual(on = true) { manual = on; },
+  step(sec = 0, dt = 1 / 30) {
+    manual = true;
+    const n = Math.round(sec / dt);
+    for (let i = 0; i < n; i++) { simT += dt; world.update(dt, simT); folk.update(dt, simT); standFolk(); }
+    world.beforeDraw(simT);
+    if (painter.mode === 2) { renderer.shadowMap.needsUpdate = true; renderer.setRenderTarget(null); renderer.render(scene, camera); }
+    else painter.renderPainted();
+    return { t: simT, pose: world.rig.pose() };
+  }
+};
+</script>
+</body>
+</html>

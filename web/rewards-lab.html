@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-ag-font="G">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rewards lab</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/agora.css">
+<link rel="stylesheet" href="css/rewards.css" data-ag-rewards="1">
+<style>
+  /* lab only: a still of the game behind the real tally (ART_DIRECTION §22b). Click anywhere on the map = "something was
+     made here" (a random gain). The drawer (bottom-right) fires the named cases; ?auto=1 plays the reel; ?clean=1 hides the drawer. */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #e9d9b2; }
+  .lab-bg { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; display: block; user-select: none; }
+  .lab { position: fixed; right: 14px; bottom: 14px; z-index: 100; width: 252px; padding: 10px 12px 12px; border-radius: 12px;
+    background: color-mix(in srgb, #f3ecdc 94%, transparent); box-shadow: 0 0 0 1px rgba(61,85,136,.25), 0 10px 26px rgba(40,20,10,.16);
+    font: 13px/1.3 var(--ag-font-text); color: var(--ink); }
+  .lab h3 { margin: 2px 0 6px; font: italic 700 15px var(--ag-font-display); }
+  .lab button { font: inherit; color: var(--ink); background: none; border: 0; border-radius: 999px; box-shadow: 0 0 0 1px rgba(61,85,136,.3); padding: 3px 9px; margin: 2px; cursor: pointer; }
+  .lab button:hover { background: rgba(61,85,136,.08); }
+  .lab p { margin: 6px 0 0; font-size: 12px; font-style: italic; opacity: .75; }
+  body.clean .lab { display: none; }
+</style>
+</head>
+<body>
+<img class="lab-bg" src="assets/rewards-backdrop.jpg" alt="">
+<div class="ag-ui" id="ui"><button class="ag-place" type="button"><span class="ag-place__name">Agora</span></button></div>
+<div class="lab" id="lab">
+  <h3>Rewards</h3>
+  <div>
+    <button data-k="bakery">Bakery</button><button data-k="house">House</button><button data-k="well">Well</button>
+    <button data-k="observatory">Observatory</button><button data-k="lighthouse">Lighthouse</button><button data-k="duck">Rubber duck</button>
+  </div>
+  <div style="margin-top:4px">
+    <button data-k="milestone">Milestone</button><button data-k="levelup">Level up</button><button data-k="reel">Play reel</button><button data-k="reset">Reset</button>
+  </div>
+  <p>click the map: something is made there</p>
+</div>
+<script type="module">
+  import { createRewards } from './js/ui/rewards.js';
+  const Q = new URLSearchParams(location.search);
+  if (Q.get('clean') === '1') document.body.classList.add('clean');
+  const layer = document.getElementById('ui');
+  const anchor = layer.querySelector('.ag-place');
+
+  // the backdrop is a 1440x900 game frame (tests/rewards/backdrop.mjs) shown object-fit: cover; these are its buildings
+  const SHOT = { w: 1440, h: 900 };
+  const SPOTS = { house: { x: 614, y: 262 }, well: { x: 703, y: 352 }, bakery: { x: 712, y: 410 }, observatory: { x: 1010, y: 300 }, lighthouse: { x: 470, y: 470 }, duck: { x: 430, y: 540 } };
+  function toScreen(p) {
+    const s = Math.max(innerWidth / SHOT.w, innerHeight / SHOT.h), ox = (innerWidth - SHOT.w * s) / 2, oy = (innerHeight - SHOT.h * s) / 2;
+    return { x: ox + p.x * s, y: oy + p.y * s };
+  }
+  // the fake emitter: the same payload shape the sim sends (reward:gain)
+  const bus = { h: {}, on(e, f) { (this.h[e] ||= []).push(f); }, emit(e, p) { for (const f of this.h[e] || []) f(p); } };
+  const rw = createRewards({ layer, anchor, slow: +(Q.get('slow') || 1) || 1, locate: p => (p.spot ? toScreen(p.spot) : null) });
+  rw.attach(bus);
+  rw.setCiv({ level: 'Camp', progress: 0.1 });
+  let prog = 0.1;
+  const CASES = {
+    bakery: { money: 3, happiness: 1, civ: 2 }, house: { happiness: 3, civ: 1 }, well: { money: 1, happiness: 1, civ: 1 },
+    observatory: { science: 4, happiness: 1, civ: 2 }, lighthouse: { money: 2, happiness: 1, science: 2, civ: 2 }, duck: { happiness: 2, civ: 1 }
+  };
+  function make(k, spot) {
+    prog = Math.min(.96, prog + .12);
+    bus.emit('reward:gain', { kind: k, gains: CASES[k], spot: spot || SPOTS[k], progress: prog });
+  }
+  const MILES = [{ area: 'money', text: 'Money 10: the stalls are busy' }, { area: 'happiness', text: 'Happiness 10: the folk are singing at dusk' }, { area: 'science', text: 'Science 5: we learned to build it' }];
+  let mi = 0;
+  const LV = ['Hamlet', 'Village', 'Town', 'Civilisation']; let li = 0;
+  function levelUp() { const to = LV[li++ % LV.length]; prog = 0; bus.emit('reward:levelup', { level: to, from: rw.civ.level }); }
+  async function reel() {
+    const sl = ms => new Promise(r => setTimeout(r, ms));
+    make('bakery'); await sl(3600); make('house'); await sl(3000);
+    bus.emit('reward:milestone', MILES[0]); make('observatory'); await sl(4200); levelUp();
+  }
+  document.getElementById('lab').addEventListener('click', e => {
+    const k = e.target.dataset && e.target.dataset.k; if (!k) return;
+    if (CASES[k]) make(k);
+    else if (k === 'milestone') bus.emit('reward:milestone', MILES[mi++ % MILES.length]);
+    else if (k === 'levelup') levelUp();
+    else if (k === 'reel') reel();
+    else if (k === 'reset') location.reload();
+  });
+  document.querySelector('.lab-bg').addEventListener('click', e => {
+    const keys = Object.keys(CASES), k = keys[Math.floor(Math.random() * keys.length)];
+    prog = Math.min(.96, prog + .1);
+    bus.emit('reward:gain', { kind: k, gains: CASES[k], at: { x: e.clientX, y: e.clientY }, progress: prog });
+  });
+  window.__rw = { rw, bus, make, levelUp, reel, SPOTS, toScreen };
+  if (Q.get('auto') === '1') setTimeout(reel, 600);
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--use-angle=metal', '--window-size=1440,900'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('console', m => { if (/error|warn/i.test(m.type())) console.log('[console]', m.type(), m.text().slice(0, 300)); });
+p.on('pageerror', e => console.log('[pageerror]', e.message));
+await p.goto('http://localhost:8870/create.html', { waitUntil: 'networkidle0' });
+await p.waitForFunction('window.__create', { timeout: 20000 });
+const D = '/Users/suedagul/agora/shots/create/'; (await import('fs')).mkdirSync(D, { recursive: true });
+await p.screenshot({ path: D + '0-empty.png' });
+const t0 = Date.now();
+await p.evaluate(() => window.__create.handle("let's build a house in the middle", null));
+await new Promise(r => setTimeout(r, 1800)); await p.screenshot({ path: D + '1-house-pencil.png' });
+await new Promise(r => setTimeout(r, 5000)); await p.screenshot({ path: D + '2-house-painted.png' });
+await p.evaluate(() => window.__create.handle('a windmill next to the house', null));
+await new Promise(r => setTimeout(r, 7000)); await p.screenshot({ path: D + '3-windmill.png' });
+p.evaluate(() => window.__create.handle('a giant rubber duck', { x: -12, z: 6 }));
+for (let i = 0; i < 16; i++) { await new Promise(r => setTimeout(r, 4000)); await p.screenshot({ path: D + `4-duck-${String(i).padStart(2, '0')}.png` }); const n = await p.evaluate(() => window.__create.placed.length); if (n >= 3 && i > 2) { await new Promise(r => setTimeout(r, 6000)); await p.screenshot({ path: D + '5-duck-done.png' }); break; } }
+console.log('placed', await p.evaluate(() => window.__create.placed.map(x => x.name)), ((Date.now() - t0) / 1000).toFixed(0) + 's');
+console.log(await p.evaluate(() => document.getElementById('notice').innerText + ' | ' + document.getElementById('mind').innerText));
+await b.close();

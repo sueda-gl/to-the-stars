@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Tower Planet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --chip:rgba(244,238,224,.9); --chip-ink:#12205e; --chip-line:rgba(18,32,94,.28);
+  --chip-on:#12205e; --chip-on-ink:#f4eee0; --bg:#05060d;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --chip:rgba(12,20,62,.82); --chip-ink:#efe8d6; --chip-line:rgba(239,232,214,.3);
+    --chip-on:#efe8d6; --chip-on-ink:#0c143e;
+  }
+}
+:root[data-theme="dark"]{
+  --chip:rgba(12,20,62,.82); --chip-ink:#efe8d6; --chip-line:rgba(239,232,214,.3);
+  --chip-on:#efe8d6; --chip-on-ink:#0c143e;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;overflow:hidden;background:var(--bg);font-family:"Cormorant Garamond",Georgia,"Times New Roman",serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+canvas:active{cursor:grabbing}
+#ui{
+  position:fixed;left:max(14px,env(safe-area-inset-left,0px));
+  bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;gap:6px;align-items:flex-start;max-width:calc(100vw - 28px);
+  opacity:0;transition:opacity .8s ease;
+}
+#ui.ready{opacity:1}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+button{
+  font:600 15px/1 "Cormorant Garamond",Georgia,serif;letter-spacing:.01em;
+  color:var(--chip-ink);background:var(--chip);border:1px solid var(--chip-line);
+  padding:7px 11px 8px;border-radius:999px;cursor:pointer;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+button[aria-pressed="true"],button[role="radio"][aria-checked="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:transparent}
+button:focus-visible{outline:2px solid #f4eee0;outline-offset:2px}
+button[hidden]{display:none}
+#styles{display:inline-flex;gap:6px}
+#colours{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:max(14px,env(safe-area-inset-right,0px));
+  background:var(--chip);color:var(--chip-ink);border:1px solid var(--chip-line);border-radius:14px;padding:10px 12px 12px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font:600 14px/1.2 "Cormorant Garamond",Georgia,serif;
+  max-height:calc(100vh - 28px);overflow:auto}
+#colours[hidden]{display:none}
+.ctitle{font-size:17px;margin-bottom:8px}
+#cgrid{display:grid;grid-template-columns:auto auto;gap:6px 12px;align-items:center}
+#cgrid input{width:36px;height:24px;padding:0;border:1px solid var(--chip-line);border-radius:6px;background:none;cursor:pointer}
+.hint{font:italic 500 15px/1.2 "Cormorant Garamond",Georgia,serif;color:var(--hint,#f4eee0);padding-left:4px}
+#loading{position:fixed;inset:0;display:grid;place-items:center;color:#f4eee0;font:italic 500 22px "Cormorant Garamond",Georgia,serif;transition:opacity .6s}
+#err{position:fixed;inset:0;display:none;place-items:center;padding:24px;text-align:center;color:#f4eee0;font:500 20px/1.4 "Cormorant Garamond",Georgia,serif}
+#ui{z-index:2}
+@media(max-width:560px){#ui{gap:5px}.row,#styles{gap:5px}button{font-size:14px;padding:6px 9px}}
+@media (prefers-reduced-motion: reduce){#ui,#loading{transition:none}}
+</style>
+</head>
+<body>
+<div id="colours" hidden>
+  <div class="ctitle">Colours</div>
+  <div id="cgrid"></div>
+</div>
+<div id="loading">Shaping the planet…</div>
+<div id="err"></div>
+<div id="ui">
+  <div class="row">
+    <button id="walk" aria-pressed="false">Walk the road</button>
+    <button id="back" hidden>Back to orbit</button>
+    <span id="styles" role="radiogroup" aria-label="Surface style">
+      <button data-mode="0" role="radio" aria-checked="true">Grain</button>
+      <button data-mode="1" role="radio" aria-checked="false">Gouache</button>
+    </span>
+    <button id="colBtn" aria-pressed="false" aria-controls="colours">Colours</button>
+  </div>
+  <div class="hint" id="hint">Drag to spin, scroll or pinch to zoom</div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script type="module">
+// The Tower Planet, rebuilt only from web/js/planet/* (tests/planet/fidelity.mjs checks it against
+// reference/the-tower-planet-clean.html pixel for pixel). Her markup and CSS above are byte-identical.
+import { createPlanet } from './js/planet/planet.js';
+import { mountPlanetUI } from './js/planet/ui.js';
+(() => {
+'use strict';
+function fail(msg){const e=document.getElementById('err');e.textContent=msg;e.style.display='grid';const l=document.getElementById('loading');if(l)l.remove();}
+if (!window.THREE) { fail('The 3D library did not load. Reload the page to try again.'); return; }
+
+setTimeout(()=>{
+  let planet;
+  try{ planet=createPlanet({ fail, onFirstFrame:()=>{
+    const ld=document.getElementById('loading');ld.style.opacity=0;setTimeout(()=>ld.remove(),700);
+    document.getElementById('ui').classList.add('ready');
+  } }); }catch(e){ console.error(e); fail('The scene failed to build: '+(e&&e.message||e)); return; }
+  if(!planet) return;
+  mountPlanetUI(planet);
+  window.__planet=planet;
+},30);
+})();
+</script>
+</body>
+</html>

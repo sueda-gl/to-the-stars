@@ -1,0 +1,8 @@
+{
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "npm install --omit=dev",
+  "outputDirectory": "web",
+  "rewrites": [ { "source": "/api/:path*", "destination": "/api/index" } ],
+  "functions": { "api/index.mjs": { "maxDuration": 300, "includeFiles": "{server/**,web/js/**,web/assets/look.json}" } }
+}

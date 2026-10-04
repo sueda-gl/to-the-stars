@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paint sandbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/paint.css">
+</head>
+<body>
+<!-- The nav seam on an empty plot: cream paper ground, the Red arch backdrop, one folk of each species
+     wandering a 40 x 40 square with no arch, no pool and no terrace. #gouache #raw -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/Reflector.js"></script>
+<script type="module">
+import { createRenderer, createContext } from './js/paint/context.js';
+import { createBackdrop } from './js/paint/backdrop.js';
+import { createFolk } from './js/paint/folk.js';
+import { createPainter } from './js/paint/post.js';
+import { mountPaintUI } from './js/paint/ui.js';
+
+const renderer = createRenderer();
+const scene = new THREE.Scene();
+const camBase = new THREE.Vector3(0, 6.5, 19), look = new THREE.Vector3(0, 1.4, -2);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.5, 1200);
+camera.position.copy(camBase); camera.lookAt(look);
+const ctx = createContext({ renderer, scene, camera, seed: 7 });
+const { V, R } = ctx;
+const backdrop = createBackdrop(ctx, { camBase });
+
+// the empty plot: one big cream Lambert plane catching the key light's shadows
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshLambertMaterial({ color: 0xe9dcc8 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+// a game nav: wander anywhere inside the 40 x 40 square, nothing in the way
+const HALF = 20, arrivals = { count: 0 };
+const nav = {
+  obstacles: [],                                   // [x, z, r]; buildings would go here
+  spots: [[-3, 2], [3, 3], [0, -2], [-5, -3], [5, -1], [-1, 6], [2, -5]],
+  closeFocus: V(0, 1.1, 0),
+  pickTarget(a) { a.path = [V(R(-HALF + 1, HALF - 1), 0, R(-HALF + 1, HALF - 1))]; },
+  bounds(p) { p.x = Math.max(-HALF, Math.min(HALF, p.x)); p.z = Math.max(-HALF, Math.min(HALF, p.z)); },
+  extraPush() {},                                  // no pool channel, no arch wall
+  flyTarget(f) { f.route = [V(R(-HALF + 2, HALF - 2), R(2.4, 6.2), R(-HALF + 2, HALF - 2))]; },
+  floatTarget(f) { f.route.push(V(R(-HALF + 2, HALF - 2), R(3.2, 6.8), R(-HALF + 2, HALF - 2))); },
+  flyPush(f, want) {                               // fliers steer back in if they drift past the edge
+    if (Math.abs(f.pos.x) > HALF - 1) want.x -= Math.sign(f.pos.x) * 2;
+    if (Math.abs(f.pos.z) > HALF - 1) want.z -= Math.sign(f.pos.z) * 2;
+  },
+  onArrive() { arrivals.count++; }
+};
+const folk = createFolk(ctx, backdrop, nav);
+const SPECIES = ['puffer', 'loaf', 'drop', 'scoot', 'flit', 'pip', 'floatie'];
+const one = Object.fromEntries(SPECIES.map((s, i) => [s, folk.make[s](i)]));
+// the fliers spawn over the reference terrace; bring them over the plot
+[one.flit, one.floatie].forEach((f, i) => { f.pos.set(i ? 4 : -4, f.pos.y, 1); f.root.position.copy(f.pos); });
+folk.update(0.016, 0);
+
+const painter = createPainter(ctx, folk, { framing: (cam, w, h) => { cam.aspect = w / h; cam.fov = 50; } });
+addEventListener('resize', () => painter.resize());
+mountPaintUI(painter, { closeUp: false });
+painter.resize();
+
+// headless check: run the sim, confirm nobody leaves the square, everyone moves, and held agents obey
+window.__sandbox = {
+  folk, one, nav, arrivals,
+  check(steps = 3600, dt = 1 / 30) {
+    const all = SPECIES.map(s => one[s]), start = all.map(a => a.pos.clone()), travelled = all.map(() => 0);
+    let maxWalk = 0, maxFly = 0, poolVisits = 0, t = 0;
+    for (let i = 0; i < steps; i++) {
+      t += dt; const prev = all.map(a => a.pos.clone());
+      folk.update(dt, t);
+      all.forEach((a, k) => {
+        travelled[k] += a.pos.distanceTo(prev[k]);
+        const m = Math.max(Math.abs(a.pos.x), Math.abs(a.pos.z));
+        if (a.route) maxFly = Math.max(maxFly, m); else maxWalk = Math.max(maxWalk, m);
+        if (!a.route && Math.abs(a.pos.x) < 3.6 && a.pos.z > -12 && a.pos.z < 26) poolVisits++;   // the reference pool channel
+      });
+    }
+    // a.controlled: the game owns the path; after arriving they stay put instead of picking a new spot
+    const held = [one.puffer, one.loaf, one.pip], goals = [V(15, 0, 15), V(-15, 0, 15), V(15, 0, -15)];
+    held.forEach((a, k) => { a.controlled = true; a.path = [goals[k]]; a.wait = 0; });
+    one.flit.controlled = true; one.flit.route = []; const hover = one.flit.pos.clone();
+    for (let i = 0; i < 1800; i++) { t += dt; folk.update(dt, t); }
+    const heldDist = held.map((a, k) => +Math.hypot(a.pos.x - goals[k].x, a.pos.z - goals[k].z).toFixed(2));
+    const flitDrift = +Math.hypot(one.flit.pos.x - hover.x, one.flit.pos.z - hover.z).toFixed(2);
+    const ok = maxWalk <= HALF + 1e-9 && maxFly <= HALF + 1.5 && travelled.every(d => d > 5) && poolVisits > 0 &&
+      heldDist.every(d => d < 1.2) && flitDrift < 1.5 && arrivals.count > 0;
+    return { ok, maxWalk: +maxWalk.toFixed(2), maxFly: +maxFly.toFixed(2), travelled: travelled.map(d => Math.round(d)),
+      poolVisits, arrivals: arrivals.count, heldDist, flitDrift };
+  }
+};
+
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  const t = clock.elapsedTime * (ctx.reduceMotion ? 0.15 : 1);
+  folk.update(dt * (ctx.reduceMotion ? 0.4 : 1), t);
+  painter.frame(dt, t, tt => backdrop.update(tt));
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
