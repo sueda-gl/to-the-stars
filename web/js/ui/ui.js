@@ -103,11 +103,14 @@ export function createUI({ root = document.body, onCommand, onLetterOption, onAg
   // ======================= voice: a small mark, a typed line, the live caption, the hint line =======================
   const voiceBar = (() => {
     const wave = h('span.ag-wave', { 'aria-hidden': 'true' }, Array.from({ length: 5 }, () => h('i')));
-    const mark = h('button.ag-mark', { type: 'button', 'aria-label': 'Hold to speak, click to write', html: iconSlot('mic', 30, MIC_SVG) + iconSlot('mic-live', 30, '') });
+    const mark = h('button.ag-mark', { type: 'button', 'aria-label': 'Click to speak (click again to send), or hold', html: iconSlot('mic', 30, MIC_SVG) + iconSlot('mic-live', 30, '') });
     const lbl = h('span.ag-mark__lbl', { 'aria-live': 'polite' });
     const input = h('input.ag-type__input', { type: 'text', placeholder: 'tell the folk what to make…', 'aria-label': 'Tell the folk what to make', autocomplete: 'off', spellcheck: false, enterKeyHint: 'send' });
     const form = h('form.ag-type', null, input, h('span.ag-type__keys', { html: '<span>enter</span> to send · <span>esc</span>' }));
-    const el = h('div.ag-voice', { 'data-state': 'idle' }, h('div.ag-voice__mark', null, mark, wave, lbl), form);
+    // 15:15: the mic is for SPEAKING; typing has its own small key next to it
+    const typeBtn = h('button.ag-typebtn', { type: 'button', 'aria-label': 'Type instead', title: 'type instead', html: iconSlot('type', 20, '⌨') });
+    typeBtn.addEventListener('click', e => { e.preventDefault(); e.currentTarget.blur(); if (clickListening) { clickListening = false; fire(onMic, false); } openTyping(); });
+    const el = h('div.ag-voice', { 'data-state': 'idle' }, h('div.ag-voice__mark', null, mark, wave, lbl, typeBtn), form);
     const capTxt = h('div.txt');
     const capEl = h('div.ag-caption', { hidden: true, 'aria-live': 'polite' }, capTxt);
     layer.append(capEl, el);
@@ -130,6 +133,7 @@ export function createUI({ root = document.body, onCommand, onLetterOption, onAg
       state = ({ idle: 1, listening: 1, thinking: 1, done: 1, error: 1 })[s] ? s : 'idle';
       el.dataset.state = state; doneText = text || '';
       mark.setAttribute('aria-pressed', String(state === 'listening'));
+      if (state !== 'listening') clickListening = false;   // the recogniser ended by itself (silence, error): the next click starts again
       if (state === 'listening') { closeTyping(); idle.poke(); }
       hooks.listening && hooks.listening(state === 'listening');
       if (state === 'done') used = true;
@@ -161,7 +165,7 @@ export function createUI({ root = document.body, onCommand, onLetterOption, onAg
     input.addEventListener('blur', () => { setTimeout(() => { if (typing && document.activeElement !== input && !input.value.trim()) closeTyping(); }, 120); });
 
     // the mark: hold = speak (onMic), click = write
-    let micDown = false, holdT = 0, pressed = false;
+    let micDown = false, holdT = 0, pressed = false, clickListening = false;
     mark.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
       pressed = true;
@@ -171,7 +175,10 @@ export function createUI({ root = document.body, onCommand, onLetterOption, onAg
     });
     const release = () => {
       if (!pressed) return; pressed = false; clearTimeout(holdT);
-      if (micDown) { micDown = false; fire(onMic, false); } else openTyping();
+      if (micDown) { micDown = false; fire(onMic, false); return; }
+      // a click: start listening; a second click sends (typing is the small key beside it)
+      if (typeof onMic !== 'function') { openTyping(); return; }
+      if (clickListening) { clickListening = false; fire(onMic, false); } else { clickListening = true; fire(onMic, true); }
     };
     mark.addEventListener('pointerup', release);
     mark.addEventListener('pointercancel', () => { pressed = false; clearTimeout(holdT); if (micDown) { micDown = false; fire(onMic, false); } });

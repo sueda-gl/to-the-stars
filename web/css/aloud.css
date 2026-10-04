@@ -473,3 +473,8 @@
     radial-gradient(circle at 0 100%, rgba(255, 248, 236, 0) 0, rgba(255, 248, 236, 0) 30px, var(--pop-card) 96px),
     radial-gradient(circle, rgba(46, 170, 96, .6) 1.3px, transparent 1.8px) 0 0 / 7px 7px, var(--pop-card) !important;
   box-shadow: 0 0 0 2.5px var(--ink), 0 0 0 5.5px var(--cream), 6px 7px 0 5.5px #3fb36b !important; }
+
+/* 15:15 the small "type instead" key beside the mic */
+.ag-typebtn { margin-left: 8px; width: 34px; height: 34px; border-radius: 50%; border: 0; display: inline-grid; place-items: center; cursor: pointer; background: var(--pop-card, #fff8ec); box-shadow: 0 0 0 2px var(--ink, #1d1b26), 3px 4px 0 2px var(--pink, #ee3d84); align-self: center; padding: 0; }
+.ag-typebtn:hover { background: #fff; }
+.ag-voice[data-state="listening"] .ag-typebtn { opacity: .5; }
