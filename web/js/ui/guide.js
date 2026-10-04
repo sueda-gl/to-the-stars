@@ -97,7 +97,7 @@ export function createGuide({ layer, onSkip = null } = {}) {
     const pic = o.icon || STEP_ICONS[step - 1];
     parts.badge.innerHTML = pic ? iconSlot(pic, 40, '') : '';
     parts.badge.hidden = !pic;
-    parts.skip.hidden = o.skip === false;
+    parts.skip.hidden = true;   // 14:00: no 'Skip tutorial'
     parts.title.textContent = o.title || '';
     parts.body.textContent = o.body || '';
     parts.body.hidden = !o.body;

@@ -130,7 +130,8 @@ export function createOnboarding({ game, ui, world, agents, opening, ministry = 
     build() {
       show('build', {
         point: () => (ui.voiceBar.typingOpen ? null : '.ag-voice__mark'), pointLabel: '',
-        chips: [{ icon: 'type', label: 'Type it', onClick: () => ui.voiceBar.openTyping() }]   // no ready-made lines here (13:35: they live under the letters)
+        chips: [{ icon: 'type', label: 'Type it', onClick: () => ui.voiceBar.openTyping() },   // 14:00: an easy one-tap build again
+          ...EXAMPLES.slice(0, 2).map(t => ({ label: `“${t}”`, onClick: () => { ui.voiceBar.openTyping(); ui.voiceBar.setValue(t); } }))]
       });
       if (built) complete('build');
     },

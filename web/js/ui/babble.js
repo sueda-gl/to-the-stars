@@ -29,12 +29,12 @@ export function createBabble({ volume = .16 } = {}) {
 
   function syllable(t, f0, f1, dur, formant, r) {
     const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), bp = ctx.createBiquadFilter(), mix = ctx.createGain();
-    o.type = 'triangle'; o2.type = 'square';
+    o.type = 'sine'; o2.type = 'triangle';
     o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     o2.frequency.setValueAtTime(f0 * 2.002, t); o2.frequency.exponentialRampToValueAtTime(f1 * 2.002, t + dur);
-    mix.gain.value = .18;                       // a touch of square on the octave: the "chirp" brightness
-    bp.type = 'bandpass'; bp.frequency.setValueAtTime(formant, t); bp.frequency.linearRampToValueAtTime(formant * (0.8 + r() * 0.5), t + dur); bp.Q.value = 2.2;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    mix.gain.value = .1;                       // a touch of square on the octave: the "chirp" brightness
+    bp.type = 'bandpass'; bp.frequency.setValueAtTime(formant, t); bp.frequency.linearRampToValueAtTime(formant * (0.8 + r() * 0.5), t + dur); bp.Q.value = 0.9;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(bp); o2.connect(mix); mix.connect(bp); bp.connect(g); g.connect(master);
     o.start(t); o2.start(t); o.stop(t + dur + 0.02); o2.stop(t + dur + 0.02);
     stats.nodes += 5; stats.syllables++;
@@ -46,7 +46,7 @@ export function createBabble({ volume = .16 } = {}) {
   function speak(text, { seed = null, pitch = 1, rate = 1 } = {}) {
     const s = String(text || '').trim(); if (!s) return { duration: 0, marks: [] };
     const r = rnd(seed != null ? seed : hashStr(s));
-    const base = 520 * pitch * (0.92 + r() * 0.16);       // a high, small voice
+    const base = 880 * pitch * (0.92 + r() * 0.16);       // a high, small bird-like voice
     const c = ensure(), t0 = c ? c.currentTime + 0.05 : 0;
     let t = 0; const marks = []; let letters = 0;
     const isQ = /\?\s*$/.test(s);
@@ -59,10 +59,10 @@ export function createBabble({ volume = .16 } = {}) {
       if (!/[\p{L}\p{N}]/u.test(ch)) continue;
       letters++;
       if (letters % 3 === 1) {                             // ~ one syllable every three letters
-        const dur = (0.07 + r() * 0.05) / rate;
+        const dur = (0.045 + r() * 0.035) / rate;
         const tail = isQ && i > chars.length - 8 ? 1.25 : 1;
-        const f0 = base * (0.85 + r() * 0.5) * tail, f1 = f0 * (0.85 + r() * 0.4);
-        if (c) syllable(t0 + t, f0, f1, dur, 1100 + r() * 1600, r);
+        const up = r() < 0.7, f0 = base * (0.8 + r() * 0.6) * tail, f1 = f0 * (up ? 1.35 + r() * 0.5 : 0.7 + r() * 0.15);   // chirps: mostly quick upward glides
+        if (c) syllable(t0 + t, f0, f1, dur, 2200 + r() * 1800, r);
         t += dur * 0.78 + 0.03 / rate;
       }
     }

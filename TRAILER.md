@@ -1,7 +1,33 @@
 # ALOUD: launch trailer (Sueda, 2026-10-04 09:10)
 Goal: a polished, professionally edited game launch trailer (~90–110 s, 1920×1080, 30 fps), for the hackathon jury. **Within 10 s the jury sees: a human says "Light the engines", we push into her screen, the Red arch, the launch into space, and the shadelings in the midday sun.**
 
-## Beat sheet
+## Cut v2 (2026-10-04 14:00) — `shots/trailer/aloud-trailer-final.mp4`, 104.7 s, 1080p30, H.264 + AAC
+Cut list: `shots/trailer/cut.json` (pipeline: `tests/record/trailer.mjs`). Contact sheet, one frame per segment: `shots/trailer/v2-sheet.jpg`.
+`aloud-trailer-v2.mp4` is the same cut with the OLD gameplay take (placeholder render).
+
+| t (s) | Segment | Source |
+|---|---|---|
+| 0.0–4.4 | her-room: behind her at the monitors, arc to profile; slow push, **white flare** into… | `clips/t0-cold-open.mp4` 0–4.4 s, own audio |
+| 3.9–9.2 | arch (push through the Red arch), reception (the squares march in, floaties) | t1 1.0–3.6, 5.2–7.9 |
+| 9.2–10.7 | engines: her profile, *"Start the engines"* (hard cut on the last word) | t0 5.15–6.6 s, own audio |
+| 10.7–18.1 | launch (gold flash on the cut + her monitors' flare whoosh t0 7.95–9.3 s as sfx), faces, climb | t1 ignite-0.1, faces+0.25, climb+0.3 |
+| 18.1–26.2 | porthole, glass, space | t3 porthole+1.6, glass+0.9, space+0.2 |
+| 25.8–37.9 | landing, **crew** (helmets off, parasols pop), offering, golden → fade to black | t5 descent+2.3, hatch+3.0, offering+0.8, golden |
+| 37.2–41.2 | *"How does a civilisation / reach the stars?"* (Montserrat 300, night) | card |
+| 40.8–45.0 | rewind: reversed t5 → t3 → t1 (climb back down to the pad), ramp to 22× | rewind |
+| 45.0–60.9 | t6 at real speed: unbuild 4.8–14.8 (rocket un-builds, swoop over the rewinding city) ⟶ dissolve ⟶ 22.5–29 (empty land, the folk) with *"It began with a word."* (Montserrat, night-blue ink, lower third) | t6 |
+| 60.3–94.2 | gameplay, 12 cuts (descent, companies, minister, house, windmill, field, red dot, lighthouse, duck, the Ministry call, the developed-civ peek, moon) | `gameplay/raw-v2.mp4` + `beats-v2.json` |
+| 93.6–98.5 | lift-again, launch-again → fade to black | t1 lift+0.5, climb+2.8 |
+| 97.7–104.7 | **ALOUD** (Melodrama 600, title white #f4f1ea, tracking settling to the game's .2em), *A civilisation, spoken aloud* (Montserrat 500) | card |
+
+- Captures: every scene frame by frame at `?w=1920&h=1080&dpr=2` (3840×2160, browser deviceScaleFactor 2), each frame lanczos-downscaled to 1080p PNG in the capture (`cut.json` `render`). Captured 2026-10-04 12:43–13:22 (t1, t3, t6 final, t5 final 13:13 version).
+- Music: none yet (silent bed, the duck slot is ready): drop `shots/trailer/music.(mp3|wav|m4a)` and re-run edit. Audio now = the cold open's room tone, her line and the flare whoosh. Tape-stop sfx slot: `shots/trailer/sfx/tape-stop.*`.
+- Re-render (only changed segments rebuild; scene captures and unchanged segments come from `shots/trailer/build/*.mov` + `.sig`):
+  - `node tests/record/trailer.mjs edit` (cut.json `out`), then `node tests/record/trailer.mjs segsheet --in shots/trailer/aloud-trailer-final.mp4`
+  - a new gameplay take `gameplay/raw-<tag>.mp4` + `beats-<tag>.json`: `node tests/record/trailer.mjs edit --gameplay <tag>` (uses the play segment's `takes.<tag>` cuts when present, else its `cuts`)
+  - a changed scene: `node tests/record/trailer.mjs capture --scene <id> --force`, then edit. `--fresh` rebuilds every segment.
+
+## Beat sheet (v1 plan, superseded by cut v2 above)
 | t (s) | Beat | Source |
 |---|---|---|
 | 0–5 | Live action: a young woman at her desk at night leans to her mic: *"Light the engines."* Push into her monitor. | Higgsfield Seedance 2.0 (start frame from Cinema Studio) |

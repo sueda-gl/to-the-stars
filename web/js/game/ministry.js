@@ -82,18 +82,31 @@ export function createMinistry({ game, ui, agents = null, command = null, talkTo
     const unhappy = S.agents.filter(a => alive(a) && (a.mood ?? 60) < 40).map(a => a.name);
     const nb = (S.neighbours || []).slice().sort((a, b) => (a.attitude || 0) - (b.attitude || 0));
     const nextLine = g ? `Next job: ${g.text.replace(/^[^:]*:\s*/, '')}${g.of > 1 ? ` (${g.n} of ${g.of} so far)` : ''}.` : 'The first jobs are all done. Try something big: a market, a school, a lighthouse.';
-    if (/^(please\s+)?(build|make|plant|put|place|dig|open|raise|add)\b|^(a|an)\s+\w+/.test(t) && command) { command(text); return `Right away! The crew is on it: ${String(text).trim().replace(/[.!]+$/, '')}.`; }
-    if (/\b(hi|hello|hey|good (morning|evening|day))\b/.test(t) && t.length < 24) return `Hello, leader! ${nextLine}`;
+    if (/^(please\s+)?(build|make|plant|put|place|dig|open|raise|add)\b|^(a|an)\s+\w+/.test(t) && command) { command(text); return `On it. The crew starts now: ${String(text).trim().replace(/[.!]+$/, '')}.`; }
+    if (/\b(hi|hello|hey|good (morning|evening|day))\b/.test(t) && t.length < 24) return report();
     if (/food|hungry|eat|bread|starv|crop|farm|field/.test(t)) return food < n ? `Food is low: about ${days} days left. Build a bakery and plant a field.` : `Food is fine for now: about ${days} days. A bakery and a field will keep it that way.`;
     if (/home|house|sleep|roof|live/.test(t)) return `${n} residents, ${homes} ${homes === 1 ? 'house' : 'houses'} so far. Build ${Math.max(1, 3 - homes)} more to start.`;
     if (/neighbo|nation|envoy|gift|trade|across/.test(t)) return nb.length ? `${nb[0].title || nb[0].name} is the least friendly. A gift of bread helps: say "send bread to our neighbours".` : 'No word from the neighbours yet.';
     if (/happy|mood|sad|angry|feel|complain|upset/.test(t)) return unhappy.length ? `Unhappy: ${unhappy.slice(0, 3).join(', ')}${unhappy.length > 3 ? ' and others' : ''}. Homes and food help most. Read their letters and answer fairly.` : 'Everyone is in good spirits. Keep building homes and food.';
     if (/minister|who are you|your name/.test(t)) { const m = S.minister ? S.agents.find(a => a.id === S.minister) : null; return m ? `I am ${m.name}, your minister. I speak for the residents. ${nextLine}` : `This is the Ministry desk. You have no minister yet: click a resident and choose "Make minister".`; }
     if (/what|next|should|help|do now|job|task|idea|advice|suggest/.test(t)) return nextLine;
-    if (/thank/.test(t)) return 'Any time, leader!';
+    if (/thank/.test(t)) return 'Chirp! Back to work.';
     return `${nextLine} You can also ask me about food, homes or the neighbours.`;
   }
 
+  // the call opens with the report (14:00: "it shouldn't write like an AI agent; start with the report")
+  function report() {
+    const n = pop(), homes = built(b => HOME_KINDS.has(b.kind)).length, roofed = Math.min(n, homes * 4);
+    const res = S.resources || {}, food = Math.round(res.food || 0), days = n ? Math.max(0, Math.round(food / Math.max(1, n * 0.5))) : 0;
+    const unhappy = S.agents.filter(a => alive(a) && (a.mood ?? 60) < 40).length;
+    const parts = [];
+    if (roofed < n) parts.push(roofed ? `Only ${roofed} of us have a roof tonight. ${n - roofed} sleep under the stars.` : `None of us has a home for tonight. ${n} of us sleep under the stars.`);
+    else parts.push(`Everyone has a roof tonight.`);
+    parts.push(food < n ? `The crates are almost empty: bread for ${days} ${days === 1 ? 'day' : 'days'}.` : `Bread for about ${days} days.`);
+    if (unhappy) parts.push(`${unhappy} ${unhappy === 1 ? 'resident is' : 'residents are'} grumbling.`);
+    const g = next(); if (g) parts.push(`We need: ${g.text.replace(/^[^:]*:\s*/, '')}.`);
+    return parts.join(' ');
+  }
   // ---------- the call ----------
   const minister = () => (S.minister ? S.agents.find(a => a.id === S.minister) : null);
   let portraitSrc = null, portraitFor = null;
@@ -104,7 +117,7 @@ export function createMinistry({ game, ui, agents = null, command = null, talkTo
       try { const p = agents.portrait(m.id, { size: 128, ring: false }); if (p && typeof p.then === 'function') p.then(src => { if (portraitFor === m.id) { portraitSrc = src; if (call.isOpen) call.dress(); } }).catch(() => {}); else if (typeof p === 'string') portraitSrc = p; } catch (_) {}
     }
     return m ? { id: m.id, name: m.name, line: `your minister${m.trade ? ', ' + m.trade : ''}`, portrait: portraitSrc, seed: [...String(m.id)].reduce((s, c) => s * 31 + c.charCodeAt(0), 7),
-      greeting: `Hello, leader! It's ${m.name}. ${next() ? 'Shall I tell you what to build next?' : 'What can I do for you?'}` }
+      greeting: report() }
       : { name: 'Ministry of Builds', line: 'the Ministry desk · no minister yet', portrait: null, seed: 11 };
   }
   async function ask(text) {
