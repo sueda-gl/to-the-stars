@@ -94,25 +94,35 @@ export function createOnboarding({ game, ui, world, agents, opening, ministry = 
       show('welcome', { action: { label: 'Continue', onClick: () => goto('residents') } });
     },
     residents() {
-      // all the squares at once, one line in the panel (no tour, no caption per fleet); Continue breaks the squares
+      // 15:35 (Sueda): "meet your workers, make me click on one and see their personality" (no 'go to work' camera rise)
       try { opening.overview(); } catch (_) {}
-      let going = false;
-      // Sueda 13:35: point at the right-most resident and open their card, so she sees what a resident is
+      let going = false, met = false;
       const rightmost = () => { let best = null, bx = -1; for (const a of alive()) { let p = null; try { p = agents.screenOf(a.id); } catch (_) {} if (p && p.x < innerWidth * 0.8 && p.y > 60 && p.y < innerHeight * 0.62 && p.x > bx) { bx = p.x; best = { a, p }; } } return best; };
-      let shown = null;
-      setTimeout(() => {
-        if (!at('residents') || going) return;
-        shown = rightmost(); if (!shown) return;
-        guide.update({ point: () => { try { const p = agents.screenOf(shown.a.id); return p ? { x: p.x, y: p.y + 6, r: 26 } : null; } catch (_) { return null; } }, pointLabel: '' });
-        try { showCard && showCard(shown.a, { x: shown.p.x, y: shown.p.y }); } catch (e) { log('resident card', e.message); }
-      }, 1600);
-      show('residents', { aside: census(), action: { label: 'Continue', onClick: () => {
+      const onward = () => {
         if (going) return; going = true;
         try { ui.agentCard.hide(); } catch (_) {}
-        guide.update({ point: null });
-        guide.update({ action: null, todo: 'Your residents go to work…', pill: 'They go to work…' });
-        Promise.resolve(opening.introduce({ every: 0, first: 0 })).then(() => { if (at('residents')) goto('future'); }).catch(e => log('intro', e.message));
-      } } });
+        guide.update({ point: null, action: null });
+        goto('future');
+        // the squares break and start work quietly in the background (no caption, no camera move asked for)
+        Promise.resolve(opening.introduce({ every: 0, first: 0 })).catch(e => log('intro', e.message));
+      };
+      show('residents', { title: 'Meet your workers', body: 'Click on one of them to see who they are: their talents, their personality, what they think.', aside: census(), todo: 'Click a resident' });
+      setTimeout(() => {
+        if (!at('residents') || going) return;
+        const r = rightmost(); if (!r) return;
+        guide.update({ point: () => { try { const p = agents.screenOf(r.a.id); return p ? { x: p.x, y: p.y + 6, r: 26 } : null; } catch (_) { return null; } }, pointLabel: 'click me' });
+      }, 1400);
+      const watch = setInterval(() => {
+        if (!at('residents') || going) { clearInterval(watch); return; }
+        const id = ui.agentCard.agentId;
+        if (id != null && !met) {
+          met = true;
+          const a = alive().find(x => x.id === id);
+          guide.update({ point: null, todo: null, ok: null, title: `This is ${a ? a.name : 'one of your workers'}`,
+            body: 'Everyone has different talents and opinions, and each of them can play a role in your new civilisation. Treat them well.',
+            action: { label: 'Continue', onClick: onward } });
+        }
+      }, 250);
     },
     letters() {
       // §24 pm: taught from the RED DOT over the resident who wrote (the camera frames them; the dot is bigger and pulses)

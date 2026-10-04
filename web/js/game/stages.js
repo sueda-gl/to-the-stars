@@ -539,7 +539,59 @@ export function createStages({ game, world, planet, geo, agents = null, ui = nul
   // the step a move is in (tests / perf phases): lift | rise | flight | fade | approach | dive | lounge | rising | leaving | return | descent | handoff | null
   let step = null;
   const at = s => { step = s; };
-  async function goMoon() {
+  // 15:30 (Sueda: "the fly back and forth takes so much time"): the QUICK trip is the default: up through the clouds to
+  // space, a beat, a cut straight down onto the lounge's meadow; home is a cut back up to orbit, then the cloud descent.
+  // goMoon({ full: true }) keeps the long cinematic flight (Plissé, the bridge dive).
+  let quickTrip = false;
+  async function goMoonQuick() {
+    if (scene === 'moon') return ld || pd;
+    if (flying) return null;
+    flying = true;
+    try {
+      if (agents) { try { agents.showPins(false); } catch (_) {} }
+      const lp = mountLounge();
+      if (scene !== 'globe' || surface === 'sea') {
+        setScene('globe');
+        if (surface === 'sea') { at('lift'); await lift(); easeLens(0, 1200); }
+        world.rig.enabled = false; world.orbit({ over: geo.centre, spin: false });
+      }
+      at('flight');
+      planet.orbitSpin(true);
+      await lp;
+      loungeNeeded = true; sizeLounge(1); setLounge(false);
+      const t0 = performance.now();
+      await sleep(900);                                        // a beat in space
+      while (!loungeSettled() && performance.now() - t0 < 8000) await sleep(80);
+      at('dive');
+      act3 = 'lounge'; setScene('moon');
+      try { game.setScene('moon'); } catch (_) {}
+      await fade(loungeEl, 0, 1, 650);
+      loungeEl.classList.add('is-on'); loungeEl.style.pointerEvents = 'auto';
+      quickTrip = true;
+      try { loungeEl.blur(); window.focus(); } catch (_) {}
+      return ld;
+    } finally { flying = false; step = null; }
+  }
+  async function goHomeQuick() {
+    flying = true;
+    try {
+      at('rising');
+      loungeEl.classList.remove('is-on'); loungeEl.style.pointerEvents = 'none';
+      setScene('globe'); act3 = 'earth';
+      try { game.setScene('earth'); } catch (_) {}
+      setLens(0); planet.autoBlend(true);
+      world.orbit({ over: geo.centre, spin: false });
+      await fade(loungeEl, 1, 0, 650);
+      loungeNeeded = false; setLounge(0); sizeLounge(TINY);
+      quickTrip = false;
+      await sleep(500);
+    } finally { flying = false; step = null; }
+    await homeFromGlobe();
+    if (agents) { try { agents.showPins(true); } catch (_) {} }
+    return true;
+  }
+  async function goMoon(opts = {}) {
+    if (!opts.full) return goMoonQuick();
     if (scene === 'moon') return ld || pd;
     if (flying) return null;
     flying = true;
@@ -619,6 +671,7 @@ export function createStages({ game, world, planet, geo, agents = null, ui = nul
   async function goHome() {
     if (scene !== 'moon') return homeFromGlobe();
     if (flying) return false;
+    if (quickTrip) return goHomeQuick();
     flying = true;
     try {
       // lounge -> the bridge rising -> Plissé

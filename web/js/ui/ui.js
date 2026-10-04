@@ -185,7 +185,7 @@ export function createUI({ root = document.body, onCommand, onLetterOption, onAg
     mark.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); openTyping(); } });
 
     // the live caption: one line of large italic serif, near the bottom; it fades ~3 s after landing
-    function setCaption(text, final = false, { holdMs: hold = 3000 } = {}) {
+    function setCaption(text, final = false, { holdMs: hold = 5000 } = {}) {
       clearTimeout(capTimer);
       if (!text) { capEl.classList.remove('is-on'); capEl.hidden = true; capUnblock(); return; }
       const wasHidden = capEl.hidden;
