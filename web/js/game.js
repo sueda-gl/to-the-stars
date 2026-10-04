@@ -48,6 +48,7 @@ import { createMailDots } from './game/mail-dots.js';
 import { createMinistry } from './game/ministry.js';
 import { createFutureToggle } from './ui/future-toggle.js';
 import { createFuture } from './game/future.js';
+import { createSound } from './ui/sound.js';
 
 const Q = new URLSearchParams(location.search);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -348,6 +349,7 @@ const ministry = createMinistry({ game, ui, agents, log, talkTo: (id, text) => t
 const futureToggle = createFutureToggle({ layer: ui.el, future: () => game.future || (window.__agora && window.__agora.future) || null, log });
 // off the seaside (her orbit, a flight, Plissé) the folk's speech bubbles stay home with them (they were drawn over her planet)
 stages.onChange(s => document.body.classList.toggle('ag-aloft', s !== 'world'));
+const sound = createSound({ game, stages, ui, agents });   // music, sfx, the folk's ambient chirps (ui/sound.js)
 
 const MOON_CHIPS = ['Offer them a seed', 'Wait for the evening', 'We come in peace', 'Let’s go home'];
 stages.onChange(s => { try { ui.voiceBar.setChips(s === 'moon' ? MOON_CHIPS : [...DEFAULT_CHIPS, ...MORE_CHIPS]); } catch (_) {} });

@@ -20,6 +20,9 @@
   :root { --ink: #2a2740; --pink: #ee3d84; --pink-l: #f8aecb; --mag: #b3175a; --lemon: #ffe23a; --cream: #fff3dc; --card: #fff8ec; --night: #0a0c22; }
   html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--night); }
   html.clear, html.clear body { background: transparent; }
+  /* theme=green: the meadow-green onboarding card (aloud.css green corners, #3fb36b family) */
+  html.green { --card: #eaf7e2; --pink: #3fb36b; --mag: #1f7a45; }
+  html.green .ht { background: radial-gradient(circle, rgba(46, 170, 96, .85) 2.6px, transparent 3.5px) 0 0 / 15px 15px; }
   #sky { position: absolute; inset: 0; }
   #sky i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff3dc; }
   .stage { position: absolute; inset: 0; display: grid; place-items: center; }
@@ -59,6 +62,7 @@
   const mode = get('mode', 'card'), dur = +get('dur', 5), fin = +get('fin', 0.5), fout = +get('fout', 0.45);
   const bg = get('bg', 'night'), size = +get('size', mode === 'title' ? 250 : 84), yOff = +get('y', 0);
   if (bg === 'clear') document.documentElement.classList.add('clear');
+  if (get('theme', '') === 'green') document.documentElement.classList.add('green');
   const root = document.getElementById('root');
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const backOut = (u, s = 2.1) => { u = clamp(u, 0, 1) - 1; return 1 + u * u * ((s + 1) * u + s); };

@@ -23,6 +23,19 @@ import { mapFlat, H as terrainH } from '../planet/terrain.js';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const frames = (n = 2) => new Promise(r => { const f = () => (--n <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// a canvas / frame cross-fade (restored: the Act 3 cuts use it; act3-lab.html's, minus the lab's test hook)
+function fade(el, from, to, ms, tick = null) {
+  return new Promise(res => {
+    const t0 = performance.now();
+    const f = now => {
+      const v = from + (to - from) * smooth(0, 1, (now - t0) / Math.max(1, ms));
+      if (el) el.style.opacity = String(v);
+      if (tick) { try { tick(v); } catch (_) {} }
+      if (now - t0 < ms) requestAnimationFrame(f); else res();
+    };
+    requestAnimationFrame(f);
+  });
+}
 
 // perf (docs/perf.md §3): a hidden world is a tenth of the viewport (TINY) or frozen; Plissé grows at PLISSE_GROW of the
 // flight out and GROW s before the bridge uncovers her on the way home; the lounge wakes LOUNGE_WAKE s before cut 2

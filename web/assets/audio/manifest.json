@@ -1,0 +1,10 @@
+{
+ "music-loop": {
+  "loop": 72.0,
+  "pad": 0.5
+ },
+ "music-space": {
+  "loop": 32.0,
+  "pad": 0.5
+ }
+}
