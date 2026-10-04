@@ -84,7 +84,7 @@
     const text = get('text', 'ALOUD'), sub = get('sub', '');
     root.innerHTML = `<div class="title"><div class="name" id="name" style="font-size:${size}px"></div>${sub ? `<div class="tag" id="tag">${esc(sub)}</div>` : ''}</div>`;
     const name = document.getElementById('name'), tag = document.getElementById('tag');
-    const letters = [...text].map((c, i) => { const s = document.createElement('span'); s.className = 'L'; s.textContent = c; s.dataset.c = c; name.append(s); return s; });
+    const letters = [...text].map((c, i) => { const s = document.createElement('span'); s.className = 'L'; s.textContent = c === ' ' ? '\u00a0' : c; s.dataset.c = c === ' ' ? '\u00a0' : c; if (c === ' ') s.style.width = '.32em'; name.append(s); return s; });
     addStar(name, STAR, '-0.5em', '-0.12em', 1.25, 0.75); addStar(name, SPARK, 'calc(100% + 0.08em)', '-0.2em', 1.0, 0.88);
     addStar(name, STAR, 'calc(100% + 0.16em)', '0.62em', 0.75, 1.0); addStar(name, SPARK, '-0.34em', '0.72em', 0.6, 1.1);
     stars.forEach(s => { s.el.style.fontSize = size + 'px'; });

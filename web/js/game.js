@@ -474,6 +474,8 @@ async function begin({ spawn = true, onboarding: guided = true } = {}) {
 }
 
 // ---------- boot ----------
+const bootP = (p, l) => { try { window.__bootProgress && window.__bootProgress(p, l); } catch (_) {} };
+bootP(0.18);
 (async () => {
   let createMarks = null, createFillers = null, createTrees = null;
   try { ({ createMarks } = await import('./marks/marks.js')); } catch (e) { log('no marks module', e.message); }
@@ -561,13 +563,18 @@ async function begin({ spawn = true, onboarding: guided = true } = {}) {
   feedHud();
 
   // the title over her orbit (Grain, spinning); the seaside map is built underneath, waiting for the hand-off
+  bootP(0.32);
   try { await stages.introGlobe(); } catch (e) { log('orbit intro failed', e.message); }
+  bootP(0.5);
   frame(performance.now());
   await planet.ready;
+  bootP(0.62);
   // perf (docs/perf.md §5.1): the seaside map (its programs + one painted frame), the landing bridge, Plissé and the lounge
   // are built behind the boot screen (each build is a main-thread stall: under the title they froze her spinning orbit),
   // then rest tiny and frozen until the voyage needs them. Capped, so a slow load never holds the boot screen for long.
   await Promise.race([Promise.all([seaReady, stages.preload().catch(e => log('preload', e.message))]), sleep(15000)]);
+  try { window.__bootDone && window.__bootDone(); } catch (_) {}
+  await sleep(450);
   boot.classList.add('is-off'); setTimeout(() => boot.remove(), 900);
 
   let dir = null;

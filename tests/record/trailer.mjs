@@ -364,6 +364,7 @@ async function buildSegments(cut) {
     if (!cut._fresh && exists(out) && exists(sigFile) && fs.readFileSync(sigFile, 'utf8') === sig) {
       if (s.type === 'live' || s.type === 'clip') { s._in = Number(s.in) || 0; const f = findFile(s.file); s._audio = f && await hasAudio(f) ? f : null; }
       if (s.type === 'scene') { const rg = resolveRange(s, manifest[s.scene]); s._in = rg.start; s.dur = rg.dur || s.dur; }
+      if (s.type === 'gameplay' && exists(out + '.sfx.json')) s.sfx = JSON.parse(fs.readFileSync(out + '.sfx.json', 'utf8'));
       const p = await probe(out); built.push({ ...s, file: out, frames: p.frames });
       log(`segment ${s.id}: cached (${p.frames} frames = ${(p.frames / fps).toFixed(2)}s)`);
       continue;
@@ -462,6 +463,12 @@ async function buildSegments(cut) {
       }
       if (!cuts.length) cuts.push({ at: 0, dur: Math.min(info.duration, s.dur || 58) });
       const xd = s.cutXd ?? 0.3, parts = [], fl = [];
+      // a voice line per cut (cut.vo: file, lead s before the cut's start, gain): laid as the segment's sfx
+      { const voCuts = (s.cuts || []).filter(c => byId[c.beat] || c.beat == null); let st = 0; s.sfx = (s.sfx || []).filter(x => !x._vo);
+        for (let k = 0; k < cuts.length; k++) { const c = voCuts.find(x => x.beat === cuts[k].beat); const vo = c?.vo && findFile(c.vo.file || c.vo);
+          if (vo) { const d = (await probe(vo)).duration || 3; s.sfx.push({ _vo: true, file: vo, at: r3(st - (c.vo.lead ?? 0.2)), dur: r3(d + 0.05), gain: c.vo.gain ?? 0, fin: 0.01, fout: 0.05 }); }
+          st += cuts[k].dur - xd; }
+        fs.writeFileSync(out + '.sfx.json', JSON.stringify(s.sfx)); }
       cuts.forEach((c, k) => { parts.push('-ss', String(c.at), '-t', String(c.dur), '-i', raw); fl.push(`[${k}:v]${NORM(cut)},trim=duration=${c.dur},setpts=PTS-STARTPTS[g${k}]`); });
       let lab = 'g0', off = cuts[0].dur;
       for (let k = 1; k < cuts.length; k++) { const o = r3(off - xd); fl.push(`[${lab}][g${k}]xfade=transition=fade:duration=${xd}:offset=${o}[x${k}]`); lab = `x${k}`; off = o + cuts[k].dur; }
@@ -485,6 +492,8 @@ async function buildSegments(cut) {
       vf.push(`zoompan=z='1+0.22*pow(1-min(on/${Ns},1),2)':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s=${cut.width}x${cut.height}:fps=${fps}`,
         `setpts=PTS-STARTPTS`, `eq=eval=frame:brightness='0.45*pow(max(0,1-t/${sd}),2)'`);
     }
+    // grade: raw ffmpeg filters for this segment's picture (e.g. dimming the footage behind a card), before any overlay
+    if (s.grade) vf.push(s.grade);
     // a flash on the head (the cold open's gold flare carried across a hard cut): a colour wash decaying over flash.dur
     if (s.flash) {
       const fd = s.flash.dur ?? 0.35, fa = s.flash.amount ?? 0.85, col = s.flash.color || '0xffe2a0';
@@ -546,8 +555,17 @@ async function assemble(cut, segs, outFile) {
   const music = findFile(cut.music?.file), voice = findFile(cut.voice?.file), tape = findFile(cut.sfx?.tapeStop?.file);
   const rewindAt = timeline.find(x => x.type === 'rewind')?.start ?? null;
   const mg = cut.music?.gain ?? -6, fo = cut.music?.fadeOut ?? 3;
-  if (music) { const i = addIn('-stream_loop', '-1', '-i', music); A.push(`[${i}:a]atrim=duration=${total},asetpts=PTS-STARTPTS,volume=${mg}dB,afade=t=in:d=0.5,afade=t=out:st=${r3(total - fo)}:d=${fo}[mus]`); log(`music: ${rel(music)} (${mg} dB, fade out ${fo}s)`); }
-  else { A.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${total}[mus]`); log('music: silent placeholder (drop a track at shots/trailer/music.mp3|wav|m4a)'); }
+  // beds that duck under the voices: the music and any extra beds (cut.beds: [{ file, gain }], e.g. the chirp bed)
+  const beds = (cut.beds || []).map(b => ({ ...b, f: findFile(b.file) })).filter(b => b.f);
+  // music dips: [{ seg, at, dur, db }] lower the music under a moment (at from that segment's start), 0.25 s ramps
+  const dips = (cut.music?.dips || []).map(d => { const x = timeline.find(y => y.id === d.seg); if (!x) return ''; const a0 = r3(x.start + (d.at || 0)), a1 = r3(a0 + (d.dur || 2)), g = Math.pow(10, (d.db ?? -4) / 20);
+    return `,volume=eval=frame:volume='1-(1-${g.toFixed(4)})*clip(min((t-${a0})/0.25,(${a1}-t)/0.25),0,1)'`; }).join('');
+  if (music) { const i = addIn('-i', music); A.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=duration=${total},asetpts=PTS-STARTPTS,volume=${mg}dB,afade=t=in:d=0.05,afade=t=out:st=${r3(total - fo)}:d=${fo}${dips}[mus0]`); log(`music: ${rel(music)} (${mg} dB, fade out ${fo}s)`); }
+  else A.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${total}[mus0]`);
+  beds.forEach((b, k) => { const i = addIn('-i', b.f); A.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=duration=${total},asetpts=PTS-STARTPTS,volume=${b.gain ?? 0}dB[bed${k}]`); log(`bed: ${rel(b.f)} (${b.gain ?? 0} dB)`); });
+  if (beds.length) A.push(`[mus0]${beds.map((_, k) => `[bed${k}]`).join('')}amix=inputs=${beds.length + 1}:normalize=0:duration=first[mus]`); else A.push(`[mus0]acopy[mus]`);
+  if (music) {}
+  else { log('music: silent placeholder (drop a track at shots/trailer/music.mp3|wav|m4a)'); }
   const voices = [];
   // each segment's own sound (a clip with audio:true) and its sfx [{ file, in, dur, at, gain, fin, fout }], placed at the segment's
   // start on the final timeline; all of it ducks the music bed
@@ -567,6 +585,9 @@ async function assemble(cut, segs, outFile) {
   if (voices.length) { vmix = 'vmix'; A.push(voices.length === 1 ? `[${voices[0]}]acopy[vmix]` : voices.map(x => `[${x}]`).join('') + `amix=inputs=${voices.length}:normalize=0[vmix]`); }
   if (vmix) { A.push(`[vmix]asplit[vsc][vmx]`, `[mus][vsc]sidechaincompress=threshold=${cut.music?.duckThreshold ?? 0.02}:ratio=${cut.music?.duckRatio ?? 10}:attack=15:release=${cut.music?.duckRelease ?? 500}:makeup=1[musd]`); }
   const mixIn = [vmix ? 'musd' : 'mus', vmix ? 'vmx' : null].filter(Boolean);
+  // a full-length effects track laid from 0 (cut.fxTrack: { file, gain }), not ducked
+  const fxf = findFile(cut.fxTrack?.file);
+  if (fxf) { const i = addIn('-i', fxf); A.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=duration=${total},asetpts=PTS-STARTPTS,volume=${cut.fxTrack.gain ?? 0}dB[fxt]`); mixIn.push('fxt'); log(`fx track: ${rel(fxf)}`); }
   if (rewindAt != null) {
     if (tape) { const i = addIn('-i', tape), at = Math.round(((cut.sfx?.tapeStop?.at ?? 0) + rewindAt) * 1000); A.push(`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${cut.sfx?.tapeStop?.gain ?? -3}dB,adelay=${at}|${at}[tape]`); mixIn.push('tape'); log(`sfx: tape-stop ${rel(tape)} at ${at / 1000}s`); }
     else log(`sfx: tape-stop placeholder (silent) at ${rewindAt}s; drop shots/trailer/sfx/tape-stop.wav`);
